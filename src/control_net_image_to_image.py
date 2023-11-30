@@ -5,6 +5,12 @@ import numpy as np
 from transformers import pipeline
 from diffusers.utils import load_image
 
+from diffusers import (
+    StableDiffusionControlNetImg2ImgPipeline,
+    ControlNetModel,
+    UniPCMultistepScheduler,
+)
+import torch
 
 commandline_args = os.environ.get(
     "COMMANDLINE_ARGS", "--skip-torch-cuda-test --no-half"
@@ -27,13 +33,6 @@ def get_depth_map(image, depth_estimator):
 
 depth_estimator = pipeline("depth-estimation")
 depth_map = get_depth_map(image, depth_estimator).unsqueeze(0).half().to("cpu")
-
-from diffusers import (
-    StableDiffusionControlNetImg2ImgPipeline,
-    ControlNetModel,
-    UniPCMultistepScheduler,
-)
-import torch
 
 controlnet = ControlNetModel.from_pretrained(
     "lllyasviel/control_v11f1p_sd15_depth",

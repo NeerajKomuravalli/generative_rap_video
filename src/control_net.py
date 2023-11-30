@@ -5,6 +5,13 @@ import cv2
 import numpy as np
 import os
 
+from diffusers import (
+    StableDiffusionControlNetPipeline,
+    ControlNetModel,
+    UniPCMultistepScheduler,
+)
+import torch
+
 # commandline_args = os.environ.get(
 #     "COMMANDLINE_ARGS", "--skip-torch-cuda-test --no-half"
 # )
@@ -23,12 +30,6 @@ image = image[:, :, None]
 image = np.concatenate([image, image, image], axis=2)
 canny_image = Image.fromarray(image)
 
-from diffusers import (
-    StableDiffusionControlNetPipeline,
-    ControlNetModel,
-    UniPCMultistepScheduler,
-)
-import torch
 
 # Load or download the controlnet model
 controlnet_path = "controlnet_model.pt"
