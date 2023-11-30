@@ -74,7 +74,7 @@ image = (
 stub = Stub(name="controlnet-canny", image=image)
 
 
-@stub.cls(gpu="t4", container_idle_timeout=240, timeout=600)
+@stub.cls(gpu="A100", container_idle_timeout=240, timeout=600)
 class Model:
     def __enter__(self):
         self.controlnet = ControlNetModel.from_pretrained(
