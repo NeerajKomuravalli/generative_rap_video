@@ -8,6 +8,7 @@ from segmind.settings import STABLE_DIFFUSION_NEGAVTIVE_PROMPT as NEGAVTIVE_PROM
 from segmind.settings import STABLE_DIFFUSION_URL as URL
 from segmind.settings import STABLE_DIFFUSION_STYLES as STYLES
 from segmind.prompts import STYLE_PICK
+from segmind.utils import choose_api_key
 from llm.gpt import get_gpt_3_5_resp
 
 
@@ -77,7 +78,7 @@ def stable_diffusion(
         URL,
         json=data,
         headers={
-            "x-api-key": os.environ["SEGMIND_API_KEY"],
+            "x-api-key": choose_api_key(),
         },
     )
 

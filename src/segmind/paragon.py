@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 
 from segmind.settings import STABLE_DIFFUSION_NEGAVTIVE_PROMPT as NEGAVTIVE_PROMPT
 from segmind.settings import PARAGON_URL as URL
+from segmind.utils import choose_api_key
 
 load_dotenv()
 
@@ -62,7 +63,7 @@ def paragon(
         URL,
         json=data,
         headers={
-            "x-api-key": os.environ["SEGMIND_API_KEY"],
+            "x-api-key": choose_api_key(),
         },
     )
 

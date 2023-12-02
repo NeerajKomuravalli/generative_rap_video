@@ -15,7 +15,7 @@ def text_to_image():
             # "prompt": "ultra realistic close up portrait ((beautiful pale cyberpunk female with heavy black eyeliner))",
             # "prompt": "ultra realistic scene with an active night life with three people in close up smoking, eating and dancing",
             # "prompt": "Realistic scene of two people smoking and drinking where the centre of the faces are at (50, 50) and (100, 150) coordinates",
-            "prompt": "People dancing in the club and having a good time with focus on at least one person but we should be able to see them dance",
+            "prompt": "People dancing in the club and having a good time with focus on at least one person but we should be able to see them dance, 4k",
             "negative_prompt": None,
             "width": "512",
             "height": "512",
