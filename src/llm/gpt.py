@@ -10,29 +10,44 @@ openai_api_key = os.getenv("OPENAI_API_KEY")
 client = openai.OpenAI()
 
 
-def get_gpt_3_5_resp(message: str):
-    """
-    Example of how messages argument should be
-    messages = [
-        {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": "Who won the world series in 2020?"},
-        {
-            "role": "assistant",
-            "content": "The Los Angeles Dodgers won the World Series in 2020.",
-        },
-        {"role": "user", "content": "Where was it played?"},
-    ]
-    """
-    response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
-        # response_format={"type": "json_object"},
-        messages=[
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": message},
-        ],
-    )
+class GPT3Chat:
+    def __init__(self, model: str = "gpt-3.5-turbo", set_context: str = ""):
+        if set_context == "":
+            self.history = [
+                {"role": "system", "content": "You are a helpful assistant."},
+            ]
+        else:
+            self.history = [
+                {"role": "system", "content": set_context},
+            ]
+        self.model = model
 
-    return response.choices[0].message.content
+    def get_response(self, message: str):
+        """
+        Example of how messages argument should be
+        history = [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": "Who won the world series in 2020?"},
+            {
+                "role": "assistant",
+                "content": "The Los Angeles Dodgers won the World Series in 2020.",
+            },
+            {"role": "user", "content": "Where was it played?"},
+        ]
+        """
+        self.history.append({"role": "user", "content": message})
+
+        response = client.chat.completions.create(
+            model=self.model,
+            messages=self.history,
+        )
+
+        # Append the assistant's response to the history
+        self.history.append(
+            {"role": "assistant", "content": response.choices[0].message.content}
+        )
+
+        return response.choices[0].message.content
 
 
 if __name__ == "__main__":

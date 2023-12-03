@@ -7,9 +7,10 @@ from dotenv import load_dotenv
 from segmind.settings import STABLE_DIFFUSION_NEGAVTIVE_PROMPT as NEGAVTIVE_PROMPT
 from segmind.settings import STABLE_DIFFUSION_URL as URL
 from segmind.settings import STABLE_DIFFUSION_STYLES as STYLES
+from segmind.settings import STABLE_DIFFUSION_RETRY_COUNT
 from segmind.prompts import STYLE_PICK
 from segmind.utils import choose_api_key
-from llm.gpt import get_gpt_3_5_resp
+from llm.gpt import GPT3Chat
 
 
 load_dotenv()
@@ -50,7 +51,8 @@ def stable_diffusion(
 
     # Choose the style using LLM (GPT-3.5)
     if automatic_style_select:
-        style_selected = get_gpt_3_5_resp(
+        gpt = GPT3Chat()
+        style_selected = gpt.get_response(
             message=STYLE_PICK.format(prompt=prompt, style=STYLES)
         )
         if style_selected in STYLES:
@@ -67,23 +69,31 @@ def stable_diffusion(
         "guidance_scale": "8",
         "strength": 0.2,
         "high_noise_fraction": 0.8,
-        # "seed": "468685",
+        "seed": "468685",
         "img_width": "1024",
         "img_height": "1024",
         "refiner": True,
         "base64": False,
     }
 
-    response = requests.post(
-        URL,
-        json=data,
-        headers={
-            "x-api-key": choose_api_key(),
-        },
-    )
+    retry_count = 0
+    while retry_count < STABLE_DIFFUSION_RETRY_COUNT:
+        if retry_count != 0:
+            print(
+                f"Warning: Retrying Segmind stable diffusion model for {retry_count} times as it failed"
+            )
+        response = requests.post(
+            URL,
+            json=data,
+            headers={
+                "x-api-key": choose_api_key(),
+            },
+        )
 
-    if response.status_code == 200:
-        with open(save_image_path, "wb") as f:
-            f.write(response.content)
+        if response.status_code == 200:
+            with open(save_image_path, "wb") as f:
+                f.write(response.content)
+                break
+        retry_count += 1
     else:
-        print(f"Request failed with status code {response.status_code}")
+        raise Exception("Stable Diffusion API failed after 5 retries")
