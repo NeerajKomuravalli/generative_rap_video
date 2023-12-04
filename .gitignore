@@ -6,3 +6,6 @@ __pycache__/
 *.jpeg
 *.env
 results/
+*.mp3
+*.mp4
+*.txt
