@@ -37,10 +37,21 @@ class GPT3Chat:
         """
         self.history.append({"role": "user", "content": message})
 
-        response = client.chat.completions.create(
-            model=self.model,
-            messages=self.history,
-        )
+        # Retrying for 5 times if it fails
+        for i in range(6):
+            if i != 0:
+                print(f"Retying for {i}th time")
+            try:
+                response = client.chat.completions.create(
+                    model=self.model,
+                    messages=self.history,
+                )
+                break
+            except Exception as e:
+                print(f"Attempt failed with error: {e}. Retrying...")
+
+        else:
+            print("All attempts failed.")
 
         # Append the assistant's response to the history
         self.history.append(
