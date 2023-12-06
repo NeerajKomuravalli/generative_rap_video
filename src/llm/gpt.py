@@ -51,7 +51,7 @@ class GPT3Chat:
                 print(f"Attempt failed with error: {e}. Retrying...")
 
         else:
-            print("All attempts failed.")
+            raise Exception("All attempts failed.")
 
         # Append the assistant's response to the history
         self.history.append(
@@ -59,26 +59,3 @@ class GPT3Chat:
         )
 
         return response.choices[0].message.content
-
-
-if __name__ == "__main__":
-    message = """
-    Below is the English translation of my first three verse of hindi rap track, "Karna kya hai tujhe?"
-    I want to create a rap video for the same. Story board the verse so I can create a rap video out of it.
-    
-    Go to club and play the music or
-    Let's Eat and enjoy or
-    Let's smoke and chill in my Pjs
-    My friend asked me what I want to do
-
-    What to do? What to do? What to do?
-    My friend asked me what I want to do
-    What to do? What to do? What to do?
-    My friend asked me what I want to do
-
-    Go to club and play the music or
-    Let's Eat and enjoy or
-    Let's smoke and chill in my Pjs
-    My friend asked me what I want to do
-    """
-    print(get_gpt_3_5_resp(message))
