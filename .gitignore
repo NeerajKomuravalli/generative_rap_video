@@ -1,2 +1,11 @@
 .DS_Store
 data/
+__pycache__/
+*.png
+*.jpg
+*.jpeg
+*.env
+results/
+*.mp3
+*.mp4
+*.txt
