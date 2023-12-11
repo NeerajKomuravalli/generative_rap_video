@@ -8,7 +8,6 @@ def create_video(
     image_folder_path: str,
     audio_file_path: str,
     save_video_path: str,
-    save_video_path_with_audio: str,
 ):
     # Get a sorted list of all image file paths
     image_files = sorted(
@@ -29,9 +28,10 @@ def create_video(
     # Concatenate the clips into a single video clip
     video = concatenate_videoclips(clips)
 
+    tmp_save_video_path = save_video_path.replace(".mp4", "_tmp.mp4")
     # Write the result to a file
     video.write_videofile(
-        save_video_path,
+        tmp_save_video_path,
         codec="libx264",
         fps=32,
     )
@@ -42,7 +42,7 @@ def create_video(
             "ffmpeg",
             "-y",
             "-i",
-            save_video_path,
+            tmp_save_video_path,
             "-i",
             audio_file_path,
             "-c:v",
@@ -51,6 +51,9 @@ def create_video(
             "aac",
             "-strict",
             "experimental",
-            save_video_path_with_audio,
+            save_video_path,
         ]
     )
+
+    # After the video file with audio is generated delete the file
+    os.remove(tmp_save_video_path)

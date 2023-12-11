@@ -14,7 +14,7 @@ class GPT3Chat:
     def __init__(self, model: str = "gpt-3.5-turbo", set_context: str = ""):
         if set_context == "":
             self.history = [
-                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "system", "content": "You are a helpful assistant.\n"},
             ]
         else:
             self.history = [
@@ -35,7 +35,7 @@ class GPT3Chat:
             {"role": "user", "content": "Where was it played?"},
         ]
         """
-        self.history.append({"role": "user", "content": message})
+        self.history.append({"role": "user", "content": message + "\n"})
 
         # Retrying for 5 times if it fails
         for i in range(6):
@@ -55,7 +55,7 @@ class GPT3Chat:
 
         # Append the assistant's response to the history
         self.history.append(
-            {"role": "assistant", "content": response.choices[0].message.content}
+            {"role": "assistant", "content": response.choices[0].message.content + "\n"}
         )
 
         return response.choices[0].message.content
