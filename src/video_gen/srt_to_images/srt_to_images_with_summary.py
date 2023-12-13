@@ -61,6 +61,7 @@ def generate_images(
     outro_stable_diff_prompt_gen.get_response(outro_prompt)
     for _, chunk in enumerate(chunks):
         index, _, subtitle_text = split_srt_chunk(chunk)
+        # NOTE: TODO: The logic to decide if it's intro or outro is not relly scalable and should be changed
         if subtitle_text.strip() == "Music":
             if int(index) < len(chunks) / 2:
                 response = intro_stable_diff_prompt_gen.get_response("Next")
