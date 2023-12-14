@@ -55,13 +55,24 @@ class Model:
         )
 
     @method()
+    def transcribe_in_english(self, audio_ndarry: np.ndarray):
+        """
+        Transcribe an audio file using a speech-to-text model to english languge.
+        """
+        result = self.model.transcribe(
+            audio_ndarry,
+            language="en",
+            fp16=self.use_gpu,
+        )
+        return result
+
+    @method()
     def transcribe(self, audio_ndarry: np.ndarray):
         """
         Transcribe an audio file using a speech-to-text model.
         """
         result = self.model.transcribe(
             audio_ndarry,
-            language="en",
             fp16=self.use_gpu,
         )
         return result
