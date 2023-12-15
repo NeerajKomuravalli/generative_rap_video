@@ -8,6 +8,77 @@ from prompt_generator.metrics_mule_prompt_for_images import prompt_with_summary
 from prompt_generator.intro_outro_prompt_gen import prompt as intro_outro_prompt
 
 
+def chunks_to_stable_diffusion_prompt(transcript_list: [str]):
+    """
+    Generate stable diffusion prompts from a list of transcript chunks.
+
+    This function accepts a list of transcript chunks, generates a summary of the entire track,
+    and then uses that summary to generate stable diffusion prompts for each chunk.
+
+    It uses separate instances of the GPT-3.5-turbo model to generate the summary, the lyrics prompts,
+    the intro prompts, and the outro prompts.
+
+    Args:
+        transcript_list (list[str]): A list of transcript chunks.
+
+    Returns:
+        dict: A dictionary where the keys are the chunk indices and the values are the generated prompts.
+    """
+    # Get summaray of the track
+    print("Generating summary")
+    summary_gpt_agent = GPT3Chat("gpt-3.5-turbo")
+    # Create prompt for summary
+    # Removing only music part as that would not contribute to the summary
+    total_transcript = ""
+    for chunk in transcript_list:
+        if chunk.strip() == "Music":
+            continue
+        total_transcript += "\n" + chunk
+
+    total_transcript = "\n".join(transcript_list)
+    summary_prompt = f"""
+    You are an expert in summarizing the lyrics of rap music. Below is the english translation of the hindi rap track.
+    Below are the lyrics:
+    {total_transcript}
+    Summarize the track
+    """
+    summary = summary_gpt_agent.get_response(summary_prompt)
+
+    # Use sa saperate instance of gpt
+    print("Initiating GPT for for lyrics")
+    stable_diff_prompt_gen_agent = GPT3Chat("gpt-3.5-turbo-16k")
+    prompt = prompt_with_summary % (summary)
+    response = stable_diff_prompt_gen_agent.get_response(prompt)
+
+    # Use a saperate instance of gpt for intro
+    print("Initiating GPT for for intro")
+    intro_prompt = intro_outro_prompt % (summary, "intro")
+    intro_stable_diff_prompt_gen = GPT3Chat("gpt-3.5-turbo-16k")
+    intro_stable_diff_prompt_gen.get_response(intro_prompt)
+
+    # Use a saperate instance of gpt for outro
+    print("Initiating GPT for for outro")
+    outro_prompt = intro_outro_prompt % (summary, "outro")
+    outro_stable_diff_prompt_gen = GPT3Chat("gpt-3.5-turbo-16k")
+    outro_stable_diff_prompt_gen.get_response(outro_prompt)
+
+    responses = {}
+    for _, chunk in enumerate(transcript_list):
+        index, _, subtitle_text = split_srt_chunk(chunk)
+        print(f"Processing : {index}")
+        # NOTE: TODO: The logic to decide if it's intro or outro is not relly scalable and should be changed
+        if subtitle_text.strip() == "Music":
+            if int(index) < len(transcript_list) / 2:
+                response = intro_stable_diff_prompt_gen.get_response("Next")
+            else:
+                response = outro_stable_diff_prompt_gen.get_response("Next")
+        else:
+            response = stable_diff_prompt_gen_agent.get_response(subtitle_text)
+        responses[index] = response
+
+    return responses
+
+
 def srt_to_stable_diffusion_prompt(srt_file_path: str, save_prompt_json_path: str):
     """
     Converts the contents of an SRT (SubRip Text) file into prompts for a Stable Diffusion model.
@@ -54,58 +125,12 @@ def srt_to_stable_diffusion_prompt(srt_file_path: str, save_prompt_json_path: st
     # Split the file into chunks
     chunks = srt_text.strip().split("\n\n")
 
-    content = ""
+    transcript_chunks = []
     for _, chunk in enumerate(chunks):
         _, _, subtitle_text = split_srt_chunk(chunk)
+        transcript_chunks.append(chunk)
 
-        if subtitle_text.strip() == "Music":
-            continue
-
-        content += "\n" + subtitle_text
-
-    prompt = f"""
-    You are an expert in summarizing the lyrics of rap music. Below is the english translation of the hindi rap track.
-    Below are the lyrics:
-    {content}
-    Summarize the track
-    """
-
-    # Get summaray of the track
-    print("Generating summary")
-    summary_gpt_agent = GPT3Chat("gpt-3.5-turbo")
-    summary = summary_gpt_agent.get_response(prompt)
-    prompt = prompt_with_summary % (summary)
-
-    # Use sa saperate instance of gpt
-    print("Initiating GPT for for lyrics")
-    stable_diff_prompt_gen_agent = GPT3Chat("gpt-3.5-turbo-16k")
-    response = stable_diff_prompt_gen_agent.get_response(prompt)
-
-    # Use a saperate instance of gpt for intro
-    print("Initiating GPT for for intro")
-    intro_prompt = intro_outro_prompt % (summary, "intro")
-    intro_stable_diff_prompt_gen = GPT3Chat("gpt-3.5-turbo-16k")
-    intro_stable_diff_prompt_gen.get_response(intro_prompt)
-
-    # Use a saperate instance of gpt for outro
-    print("Initiating GPT for for outro")
-    outro_prompt = intro_outro_prompt % (summary, "outro")
-    outro_stable_diff_prompt_gen = GPT3Chat("gpt-3.5-turbo-16k")
-    outro_stable_diff_prompt_gen.get_response(outro_prompt)
-
-    responses = {}
-    for _, chunk in enumerate(chunks):
-        index, _, subtitle_text = split_srt_chunk(chunk)
-        print(f"Processing : {index}")
-        # NOTE: TODO: The logic to decide if it's intro or outro is not relly scalable and should be changed
-        if subtitle_text.strip() == "Music":
-            if int(index) < len(chunks) / 2:
-                response = intro_stable_diff_prompt_gen.get_response("Next")
-            else:
-                response = outro_stable_diff_prompt_gen.get_response("Next")
-        else:
-            response = stable_diff_prompt_gen_agent.get_response(subtitle_text)
-        responses[index] = response
+    responses = chunks_to_stable_diffusion_prompt(transcript_chunks)
 
     json.dump(responses, open(save_prompt_json_path, "w"))
 

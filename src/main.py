@@ -6,7 +6,7 @@ from segmind.settings import STABLE_DIFFUSION_STYLES as style
 from segmind.prompts import STYLE_PICK
 
 # from stable_diffussion.stable_diffussion import text_to_image
-from video_gen.srt_to_images_with_summary import generate_images
+from video_gen.srt_to_images.srt_to_images_with_summary import generate_images
 from video_gen.create_video_from_frames import create_video
 
 if __name__ == "__main__":
@@ -40,8 +40,24 @@ if __name__ == "__main__":
     generate_images(srt_path, save_images_folder_path, models)
     """
     # """
+    from video_gen.srt_to_images.srt_to_stable_diffusion_prompt import (
+        srt_to_stable_diffusion_prompt,
+    )
+    from video_gen.srt_to_images.stable_diffusion_prompt_to_frames import (
+        stable_diffusion_to_frames,
+    )
 
-    # """
+    srt_path = "../data/original/karna_kya_hai_tujhe/karna_kya_hai_tujhe_bpm_111_english_translation.srt"
+    save_prompt_json_path = "/Users/neeraj/Work/generative_rap_video/src/results/gpt_generated_prompt/prompt_dict_13_12_23.json"
+    save_images_folder_path = "/Users/neeraj/Work/generative_rap_video/src/results/results_3_5_turbo_16k_summary_13_12_23/"
+    model = "graffiti"
+    # srt_to_stable_diffusion_prompt(srt_path, save_prompt_json_path)
+    stable_diffusion_to_frames(
+        save_prompt_json_path,
+        save_images_folder_path,
+        model,
+    )
+    """
     import os
 
     folder_path = "results/results_3_5_turbo_16k_summary/"
@@ -65,6 +81,7 @@ if __name__ == "__main__":
             audio_file_path,
             save_video_path,
         )
+    """
     """
     image_folder_path = "results/results_3_5_turbo_16k_summary/pop art/"
     audio_file_path = (

@@ -1,4 +1,3 @@
-import pathlib
 import numpy as np
 
 from modal import Image, Stub, method
