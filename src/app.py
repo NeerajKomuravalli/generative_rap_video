@@ -2,27 +2,37 @@ import os
 import shutil
 from typing import List
 import json
+from enum import Enum
 from concurrent.futures import as_completed, ThreadPoolExecutor
 
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, Query
 from pathlib import Path
 from pydantic import BaseModel
 
 from divide_track_into_chunks import divide_track_into_chunks
-from transcribe_audio.transcribe_audio import TranscribeAudio
+from transcribe_audio.transcribe_audio import TranscribeAudioHF
 from transcribe_audio.model import TranscriptAudioResponse
 from transcript_to_stable_diffusion_prompt.from_trascript_chunks import (
     generate_stable_diffusion_prompts,
 )
 from segmind.stable_diffusion import stable_diffusion
+from segmind.settings import STABLE_DIFFUSION_STYLES
 
 app = FastAPI()
-transcriber = TranscribeAudio()
+
+transcriber = TranscribeAudioHF()
+
+MAX_MODAL_WORKERS = 10
+
+
+class TranslationLanguage(str, Enum):
+    english = "en"
+    hindi = "hi"
 
 
 class TranscriptionRequest(BaseModel):
     audio_path: str
-    language: str = ""
+    language: TranslationLanguage = TranslationLanguage.english
 
 
 class TranscriptionAPIResponse(BaseModel):
@@ -30,8 +40,13 @@ class TranscriptionAPIResponse(BaseModel):
     transcription: TranscriptAudioResponse
 
 
+StableDiffStyle = Enum("Style", {style: style for style in STABLE_DIFFUSION_STYLES})
+
+
 @app.post("/stable_diffusion")
-async def stable_diffusion(project_name: str = Form(...), style: str = Form(...)):
+async def stable_diffusion(
+    project_name: str = Form(...), style: StableDiffStyle = Query(...)
+):
     """
     Run the stable diffusion process for a given project's prompts.
 
@@ -137,6 +152,7 @@ async def generate_prompts(project_name: str = Form(...)):
         if not prompts_folder_path.exists():
             prompts_folder_path.mkdir(parents=True, exist_ok=True)
 
+        print("Generating prompts...")
         chunks_prompt_dict = generate_stable_diffusion_prompts(
             transcriptions_folder_path
         )
@@ -152,7 +168,10 @@ async def generate_prompts(project_name: str = Form(...)):
 
 
 @app.post("/transcribe_audio_chunks")
-async def transcribe_audio_chunks(project_name: str = Form(...)):
+async def transcribe_audio_chunks(
+    project_name: str = Form(...),
+    translation_language: TranslationLanguage = Query(...),
+):
     """
     Transcribe audio chunks from a given project's audio chunks folder.
 
@@ -194,13 +213,24 @@ async def transcribe_audio_chunks(project_name: str = Form(...)):
         def transcribe_audio_and_save(audio_chunk_path: str):
             try:
                 # Transcribe the audio chunk
-                transcription = transcriber.transcribe_audio(audio_chunk_path)
+                if translation_language == TranslationLanguage.english:
+                    transcription = transcriber.transcribe_audio_to_eng(
+                        audio_chunk_path,
+                    )
+                elif translation_language == TranslationLanguage.hindi:
+                    transcription = transcriber.transcribe_audio(
+                        audio_chunk_path,
+                    )
+                else:
+                    return False, Exception(
+                        "Invalid language : {translation_language}}"
+                    )
                 return True, transcription
             except Exception as e:
                 return False, e
 
         # Use a ThreadPoolExecutor to transcribe the audio files in parallel
-        with ThreadPoolExecutor() as executor:
+        with ThreadPoolExecutor(max_workers=MAX_MODAL_WORKERS) as executor:
             future_to_file = {
                 executor.submit(transcribe_audio_and_save, file): file
                 for file in audio_files

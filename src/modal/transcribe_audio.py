@@ -60,8 +60,8 @@ class Model:
         """
         result = self.model.transcribe(
             audio_ndarry,
-            language="en",
             fp16=self.use_gpu,
+            task="translate",
         )
         return result
 

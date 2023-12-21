@@ -63,8 +63,7 @@ def chunks_to_stable_diffusion_prompt(transcript_list: [str]):
     outro_stable_diff_prompt_gen.get_response(outro_prompt)
 
     responses = {}
-    for _, chunk in enumerate(transcript_list):
-        index, _, subtitle_text = split_srt_chunk(chunk)
+    for index, subtitle_text in enumerate(transcript_list):
         print(f"Processing : {index}")
         # NOTE: TODO: The logic to decide if it's intro or outro is not relly scalable and should be changed
         if subtitle_text.strip() == "Music":
@@ -74,7 +73,8 @@ def chunks_to_stable_diffusion_prompt(transcript_list: [str]):
                 response = outro_stable_diff_prompt_gen.get_response("Next")
         else:
             response = stable_diff_prompt_gen_agent.get_response(subtitle_text)
-        responses[index] = response
+        # We are saving the chunks with index starting from 1 so we add one in dict as well
+        responses[index + 1] = response
 
     return responses
 
