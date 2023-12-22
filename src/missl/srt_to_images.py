@@ -31,7 +31,7 @@ def generate_images_from_srt(
         index, _, subtitle_text = split_srt_chunk(chunk)
 
         # NOTE: As of now when there is no lyrics we are replacing that with keyword, `Music`. We need to handle this properly.
-        if subtitle_text.strip() == "Music":
+        if subtitle_text.strip() in ["Music", ""]:
             # promt = """
             # Describe in clear and concise words the image that would represent dicision paralysis.
             # """

@@ -31,7 +31,7 @@ def chunks_to_stable_diffusion_prompt(transcript_list: [str]):
     # Removing only music part as that would not contribute to the summary
     total_transcript = ""
     for chunk in transcript_list:
-        if chunk.strip() == "Music":
+        if chunk.strip() in ["Music", ""]:
             continue
         total_transcript += "\n" + chunk
 
@@ -66,7 +66,7 @@ def chunks_to_stable_diffusion_prompt(transcript_list: [str]):
     for index, subtitle_text in enumerate(transcript_list):
         print(f"Processing : {index}")
         # NOTE: TODO: The logic to decide if it's intro or outro is not relly scalable and should be changed
-        if subtitle_text.strip() == "Music":
+        if subtitle_text.strip() in ["Music", ""]:
             if int(index) < len(transcript_list) / 2:
                 response = intro_stable_diff_prompt_gen.get_response("Next")
             else:

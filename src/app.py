@@ -17,6 +17,8 @@ from transcript_to_stable_diffusion_prompt.from_trascript_chunks import (
 )
 from segmind.stable_diffusion import stable_diffusion
 from segmind.settings import STABLE_DIFFUSION_STYLES
+from video_gen.create_video_from_frames import create_video
+
 
 app = FastAPI()
 
@@ -28,6 +30,7 @@ MAX_MODAL_WORKERS = 10
 class TranslationLanguage(str, Enum):
     english = "en"
     hindi = "hi"
+    original = ""
 
 
 class TranscriptionRequest(BaseModel):
@@ -43,8 +46,54 @@ class TranscriptionAPIResponse(BaseModel):
 StableDiffStyle = Enum("Style", {style: style for style in STABLE_DIFFUSION_STYLES})
 
 
+# Write endpoints for generating video from images and audio
+@app.post("/generate_video")
+async def generate_video(
+    project_name: str = Form(...),
+):
+    try:
+        # Check is the project exists
+        project_path = Path("./Projects") / project_name
+        if not project_path.exists():
+            return {"error": f"Project {project_name} does not exist"}
+
+        # Check if the images folder exists
+        images_folder_path = Path("./Projects") / project_name / "images"
+        if not images_folder_path.exists():
+            return {"error": f"Images folder does not exist for project {project_name}"}
+
+        # Check if the audio folder exists
+        audio_folder_path = Path("./Projects") / project_name / "original"
+        if not audio_folder_path.exists():
+            return {"error": f"Audio folder does not exist for project {project_name}"}
+
+        # Check if the video folder exists
+        video_folder_path = Path("./Projects") / project_name / "video"
+        if not video_folder_path.exists():
+            video_folder_path.mkdir(parents=True, exist_ok=True)
+
+        from datetime import datetime
+
+        video_file_name = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        save_video_path = os.path.join(video_folder_path, f"{video_file_name}.mp4")
+
+        # Get the only audio file in the audio folder
+        audio_file_path = [
+            audio_file_path
+            for audio_file_path in audio_folder_path.iterdir()
+            if audio_file_path.suffix in [".wav", ".mp3"]
+        ][0]
+
+        # Call the function to generate the video
+        create_video(images_folder_path, audio_file_path, save_video_path)
+
+    except Exception as e:
+        return {"error": str(e)}
+
+
 @app.post("/stable_diffusion")
-async def stable_diffusion(
+async def run_stable_diffusion(
     project_name: str = Form(...), style: StableDiffStyle = Query(...)
 ):
     """
@@ -81,11 +130,15 @@ async def stable_diffusion(
         # Check if the images_folder_path is present
         images_folder_path = Path("./Projects") / project_name / "images"
         if not images_folder_path.exists():
-            return {"error": f"Images folder does not exist for project {project_name}"}
+            # Create the images folder
+            images_folder_path.mkdir(parents=True, exist_ok=True)
 
         # read prompts from prompts_folder_path
         prompts = {}
         for prompt_path in prompts_folder_path.iterdir():
+            # Check if the file is a txt file
+            if prompt_path.suffix != ".txt":
+                continue
             with open(prompt_path, "r") as f:
                 save_image_path = os.path.join(
                     images_folder_path, f"{prompt_path.stem}.png"
@@ -94,7 +147,7 @@ async def stable_diffusion(
 
         def run_stable_diffusion(prompt, save_image_path, style):
             try:
-                stable_diffusion(prompt, save_image_path, style)
+                stable_diffusion(prompt, save_image_path, style.value)
                 return True, None
             except Exception as e:
                 return False, str(e)
@@ -110,6 +163,8 @@ async def stable_diffusion(
                 success, result = future.result()
                 if not success:
                     errors[prompt_key] = result
+                else:
+                    print("Success : ", prompt_key)
             if len(errors) > 0:
                 raise Exception(errors)
     except Exception as e:
@@ -170,7 +225,9 @@ async def generate_prompts(project_name: str = Form(...)):
 @app.post("/transcribe_audio_chunks")
 async def transcribe_audio_chunks(
     project_name: str = Form(...),
-    translation_language: TranslationLanguage = Query(...),
+    translation_language: TranslationLanguage = Query(
+        default=TranslationLanguage.original,
+    ),
 ):
     """
     Transcribe audio chunks from a given project's audio chunks folder.
