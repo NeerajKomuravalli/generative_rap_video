@@ -10,3 +10,6 @@ soundfile
 git+https://github.com/openai/whisper.git
 ffmpeg-python
 python-multipart
+altair==4.1.0
+streamlit==1.12.0
+watchdog

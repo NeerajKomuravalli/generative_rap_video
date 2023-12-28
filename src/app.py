@@ -1,24 +1,30 @@
 import os
 import shutil
-from typing import List
+from datetime import datetime
+from typing import Dict
 import json
 from enum import Enum
 from concurrent.futures import as_completed, ThreadPoolExecutor
+import base64
 
-from fastapi import FastAPI, UploadFile, File, Form, Query
-from pathlib import Path
 from pydantic import BaseModel
+from fastapi import FastAPI, UploadFile, File, Form, Query, HTTPException, Body
+from fastapi.responses import FileResponse
+from pathlib import Path
 
 from divide_track_into_chunks import divide_track_into_chunks
 from transcribe_audio.transcribe_audio import TranscribeAudioHF
-from transcribe_audio.model import TranscriptAudioResponse
 from transcript_to_stable_diffusion_prompt.from_trascript_chunks import (
     generate_stable_diffusion_prompts,
 )
 from segmind.stable_diffusion import stable_diffusion
 from segmind.settings import STABLE_DIFFUSION_STYLES
 from video_gen.create_video_from_frames import create_video
-
+from fastapi_models import (
+    TranslationLanguage,
+    TranscriptionRequest,
+    TranscriptionAPIResponse,
+)
 
 app = FastAPI()
 
@@ -27,23 +33,402 @@ transcriber = TranscribeAudioHF()
 MAX_MODAL_WORKERS = 10
 
 
-class TranslationLanguage(str, Enum):
-    english = "en"
-    hindi = "hi"
-    original = ""
-
-
-class TranscriptionRequest(BaseModel):
-    audio_path: str
-    language: TranslationLanguage = TranslationLanguage.english
-
-
-class TranscriptionAPIResponse(BaseModel):
-    audio_path: str
-    transcription: TranscriptAudioResponse
-
-
 StableDiffStyle = Enum("Style", {style: style for style in STABLE_DIFFUSION_STYLES})
+
+
+class UpdatePromptRequest(BaseModel):
+    updated_sd_prompt: str
+
+
+@app.post("/create_project/{project_name}")
+async def create_project(project_name: str):
+    try:
+        # Define the path to the Projects folder
+        projects_folder_path = Path("./Projects")
+
+        # Create the Projects folder if it does not exist
+        projects_folder_path.mkdir(exist_ok=True)
+
+        # Define the path to the project's folder
+        project_folder_path = projects_folder_path / project_name
+
+        # NOTE: For sake of simplicity not returning with different status when the project exists. Handle it later if needed
+        if not project_folder_path.exists():
+            # Create the project's folder
+            project_folder_path.mkdir()
+
+        return {
+            "success": True,
+            "message": f"Project {project_name} has been created successfully",
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+        }
+
+
+class ProjectStatus(BaseModel):
+    project: bool
+    original: bool
+    audio_chunks: int
+    transcriptions: int
+    prompt: int
+    images: int
+    video: int
+
+
+@app.get("/project_status/{project_name}")
+async def project_status(project_name: str):
+    try:
+        # Define the path to the project's folder
+        project_folder_path = Path("./Projects") / project_name
+
+        status = ProjectStatus(
+            project=False,
+            original=False,
+            audio_chunks=0,
+            transcriptions=0,
+            prompt=0,
+            images=0,
+            video=False,
+        )
+        # Check if the project's folder exists
+        if not project_folder_path.exists():
+            return {
+                "success": True,
+                "status": status,
+            }
+        else:
+            status.project = True
+
+        original = Path("./Projects") / project_name / "original"
+        if (not original.exists()) or (
+            len([f for f in original.glob("*") if f.name != ".DS_Store"]) > 0
+        ):
+            return {
+                "success": True,
+                "status": status,
+            }
+        else:
+            status.original = True
+
+        # First we will check for
+        audio_chunks_folder_path = project_folder_path / "audio_chunks"
+        # Check if the audio chunks folder exists
+        if not audio_chunks_folder_path.exists():
+            return {
+                "success": True,
+                "status": status,
+            }
+        else:
+            status.audio_chunks = len(
+                list(audio_chunks_folder_path.glob("*.mp3"))
+                + list(audio_chunks_folder_path.glob("*.wav"))
+            )
+
+        transcriptions_folder_path = project_folder_path / "transcriptions"
+        if not transcriptions_folder_path.exists():
+            return {
+                "success": True,
+                "status": status,
+            }
+        else:
+            status.transcriptions = len(list(transcriptions_folder_path.glob("*.json")))
+
+        # Check if the transcriptions folder exists
+        stable_diffusion_prompts_folder_path = (
+            project_folder_path / "stable_diffusion_prompts"
+        )
+        if not stable_diffusion_prompts_folder_path.exists():
+            return {
+                "success": True,
+                "status": status,
+            }
+        else:
+            status.prompt = len(
+                list(stable_diffusion_prompts_folder_path.glob("*.txt"))
+            )
+
+        images_folder_path = project_folder_path / "images"
+        # Check if the images folder exists
+        if not images_folder_path.exists():
+            return {
+                "success": True,
+                "status": status,
+            }
+        else:
+            status.images = len(
+                list(images_folder_path.glob("*.jpg"))
+                + list(images_folder_path.glob("*.png"))
+            )
+
+        video_folder_path = project_folder_path / "video"
+        if not video_folder_path.exists():
+            return {
+                "success": True,
+                "status": status,
+            }
+        else:
+            status.video = len(list(video_folder_path.glob("*.mp4")))
+
+        return {
+            "success": True,
+            "status": status,
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+        }
+
+
+@app.get("/get_audio_chunks/")
+async def get_audio_chunks(project_name: str):
+    try:
+        # Define the path to the project's audio folder
+        audio_folder_path = Path("./Projects") / project_name / "audio_chunks"
+
+        # Check if the audio folder exists
+        if not audio_folder_path.exists():
+            raise HTTPException(
+                status_code=404,
+                detail=f"Audio folder does not exist for project {project_name}",
+            )
+
+        # Get the paths of all the audio chunks
+        audio_chunks_paths = [
+            str(chunk_path)
+            for ext in ["*.wav", "*.mp3"]
+            for chunk_path in audio_folder_path.glob(ext)
+        ]
+
+        return {
+            "success": True,
+            "audio_chunks": audio_chunks_paths,
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+        }
+
+
+@app.get("/get_sd_prompts/{project_name}/")
+async def get_sd_prompts(project_name: str):
+    try:
+        # Define the path to the project's transcriptions folder
+        sd_prompts_folder_path = (
+            Path("./Projects") / project_name / "stable_diffusion_prompts"
+        )
+
+        # Check if the transcriptions folder exists
+        if not sd_prompts_folder_path.exists():
+            raise HTTPException(
+                status_code=404,
+                detail=f"Transcriptions folder does not exist for project {project_name}",
+            )
+
+        # Get the paths of all the transcription files
+        sd_prompts_paths = [
+            str(prompt_path) for prompt_path in sd_prompts_folder_path.glob("*.txt")
+        ]
+
+        return {
+            "success": True,
+            "prompts": sd_prompts_paths,
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@app.get("/get_sd_prompt/{project_name}/{chunk_name}")
+async def get_sd_prompt(project_name: str, chunk_name: str):
+    try:
+        # Define the path to the prompt file
+        promopt_file_path = (
+            Path("./Projects")
+            / project_name
+            / "stable_diffusion_prompts"
+            / f"{chunk_name}.txt"
+        )
+
+        # Check if the transcription file exists
+        if not promopt_file_path.exists():
+            raise HTTPException(
+                status_code=404,
+                detail=f"Transcription file {chunk_name} does not exist for project {project_name}",
+            )
+
+        # Read the transcription file
+        with open(promopt_file_path, "r") as file:
+            # load json file
+            prompt = file.read()
+
+        return {
+            "success": True,
+            "prompt": prompt,
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+        }
+
+
+@app.get("/get_transcript/{project_name}/{transcript_name}")
+async def get_transcript(project_name: str, transcript_name: str):
+    try:
+        # Define the path to the transcription file
+        transcription_file_path = (
+            Path("./Projects")
+            / project_name
+            / "transcriptions"
+            / f"{transcript_name}.json"
+        )
+
+        # Check if the transcription file exists
+        if not transcription_file_path.exists():
+            raise HTTPException(
+                status_code=404,
+                detail=f"Transcription file {transcript_name} does not exist for project {project_name}",
+            )
+
+        # Read the transcription file
+        with open(transcription_file_path, "r") as file:
+            # load json file
+            transcription = json.load(file)
+
+        return {
+            "success": True,
+            "transcription": transcription,
+        }
+    except Exception as e:
+        return {
+            "seccess": False,
+            "error": str(e),
+        }
+
+
+@app.get("/get_audio_chunk/{project_name}/{chunk_name}")
+async def get_audio_chunk(project_name: str, chunk_name: str):
+    try:
+        # Define the path to the audio chunk
+        audio_chunk_path = (
+            Path("./Projects") / project_name / "audio_chunks" / f"{chunk_name}.wav"
+        )
+
+        # Check if the audio chunk exists
+        if not audio_chunk_path.exists():
+            raise HTTPException(
+                status_code=404,
+                detail=f"Audio chunk {chunk_name} does not exist for project {project_name}",
+            )
+
+        with open(audio_chunk_path, "rb") as audio_file:
+            # Return the audio chunk as a file response
+            return {
+                "success": True,
+                "audio": base64.b64encode(audio_file.read()).decode("utf-8"),
+            }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+        }
+
+
+@app.get("/get_transcriptions/{project_name}")
+async def get_transcriptions(project_name: str):
+    try:
+        # Define the path to the project's transcriptions folder
+        transcriptions_folder_path = (
+            Path("./Projects") / project_name / "transcriptions"
+        )
+
+        # Check if the transcriptions folder exists
+        if not transcriptions_folder_path.exists():
+            raise HTTPException(
+                status_code=404,
+                detail=f"Transcriptions folder does not exist for project {project_name}",
+            )
+
+        # Get the paths of all the transcription files
+        transcriptions_paths = [
+            str(transcription_path)
+            for transcription_path in transcriptions_folder_path.glob("*.txt")
+        ]
+
+        return {
+            "success": True,
+            "transcriptions": transcriptions_paths,
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@app.put("/update_sd_prompt/{project_name}/{file_name}")
+async def update_sd_prompt(
+    project_name: str,
+    file_name: str,
+    updated_sd_prompt: UpdatePromptRequest = Body(...),
+):
+    try:
+        # Define the path to the transcription file
+        prompt_file_path = (
+            Path("./Projects")
+            / project_name
+            / "stable_diffusion_prompts"
+            / f"{file_name}.txt"
+        )
+
+        # Check if the transcription file exists
+        if not prompt_file_path.exists():
+            raise HTTPException(
+                status_code=404,
+                detail=f"Transcription file {file_name} does not exist for project {project_name}",
+            )
+
+        # Update the transcription file
+        with open(prompt_file_path, "w") as file:
+            file.write(updated_sd_prompt.updated_sd_prompt)
+
+        return {
+            "success": True,
+            "message": f"Prompt file {file_name} for project {project_name} has been updated successfully",
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
+
+
+@app.put("/update_transcription/{project_name}/{file_name}")
+async def update_transcription(
+    project_name: str, file_name: str, updated_transcription: Dict = Body(...)
+):
+    try:
+        # Define the path to the transcription file
+        transcription_file_path = (
+            Path("./Projects") / project_name / "transcriptions" / f"{file_name}.json"
+        )
+
+        # Check if the transcription file exists
+        if not transcription_file_path.exists():
+            raise HTTPException(
+                status_code=404,
+                detail=f"Transcription file {file_name} does not exist for project {project_name}",
+            )
+
+        # Update the transcription file
+        with open(transcription_file_path, "w") as file:
+            json.dump(updated_transcription, file)
+
+        return {
+            "success": True,
+            "message": f"Transcription file {file_name} for project {project_name} has been updated successfully",
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
 # Write endpoints for generating video from images and audio
@@ -55,24 +440,22 @@ async def generate_video(
         # Check is the project exists
         project_path = Path("./Projects") / project_name
         if not project_path.exists():
-            return {"error": f"Project {project_name} does not exist"}
+            raise Exception(f"Project {project_name} does not exist")
 
         # Check if the images folder exists
         images_folder_path = Path("./Projects") / project_name / "images"
         if not images_folder_path.exists():
-            return {"error": f"Images folder does not exist for project {project_name}"}
+            raise Exception(f"Images folder does not exist for project {project_name}")
 
         # Check if the audio folder exists
         audio_folder_path = Path("./Projects") / project_name / "original"
         if not audio_folder_path.exists():
-            return {"error": f"Audio folder does not exist for project {project_name}"}
+            raise Exception(f"Audio folder does not exist for project {project_name}")
 
         # Check if the video folder exists
         video_folder_path = Path("./Projects") / project_name / "video"
         if not video_folder_path.exists():
             video_folder_path.mkdir(parents=True, exist_ok=True)
-
-        from datetime import datetime
 
         video_file_name = datetime.now().strftime("%Y%m%d_%H%M%S")
 
@@ -85,11 +468,21 @@ async def generate_video(
             if audio_file_path.suffix in [".wav", ".mp3"]
         ][0]
 
+        print("images_folder_path : ", images_folder_path)
+        print("audio_file_path : ", audio_file_path)
+        print("save_video_path : ", save_video_path)
         # Call the function to generate the video
         create_video(images_folder_path, audio_file_path, save_video_path)
 
+        return {
+            "success": True,
+            "message": "Video generated successfully.",
+        }
     except Exception as e:
-        return {"error": str(e)}
+        return {
+            "success": False,
+            "error": str(e),
+        }
 
 
 @app.post("/stable_diffusion")
@@ -116,16 +509,14 @@ async def run_stable_diffusion(
         # check if the project exists
         project_path = Path("./Projects") / project_name
         if not project_path.exists():
-            return {"error": f"Project {project_name} does not exist"}
+            raise Exception(f"Project {project_name} does not exist")
 
         # Check if the prompts_folder_path is present
         prompts_folder_path = (
             Path("./Projects") / project_name / "stable_diffusion_prompts"
         )
         if not prompts_folder_path.exists():
-            return {
-                "error": f"Prompts folder does not exist for project {project_name}"
-            }
+            raise Exception(f"Prompts folder does not exist for project {project_name}")
 
         # Check if the images_folder_path is present
         images_folder_path = Path("./Projects") / project_name / "images"
@@ -167,8 +558,16 @@ async def run_stable_diffusion(
                     print("Success : ", prompt_key)
             if len(errors) > 0:
                 raise Exception(errors)
+
+        return {
+            "success": True,
+            "message": "images generates successfully",
+        }
     except Exception as e:
-        return {"error": str(e)}
+        return {
+            "success": False,
+            "error": str(e),
+        }
 
 
 @app.post("/generate_prompts")
@@ -197,9 +596,10 @@ async def generate_prompts(project_name: str = Form(...)):
             Path("./Projects") / project_name / "transcriptions"
         )
         if not transcriptions_folder_path.exists():
-            return {
-                "error": f"Transcriptions folder does not exist for project {project_name}"
-            }
+            raise Exception(
+                f"Transcriptions folder does not exist for project {project_name}"
+            )
+
         # Check if prompts folder exists
         prompts_folder_path = (
             Path("./Projects") / project_name / "stable_diffusion_prompts"
@@ -217,9 +617,15 @@ async def generate_prompts(project_name: str = Form(...)):
             prompt_save_path = os.path.join(prompts_folder_path, f"chunk_{key}.txt")
             with open(prompt_save_path, "w") as f:
                 f.write(chunks_prompt_dict[key])
-        return {"message": "Prompts generation complete."}
+        return {
+            "success": True,
+            "message": "Prompts generation complete.",
+        }
     except Exception as e:
-        return {"error": str(e)}
+        return {
+            "success": False,
+            "error": str(e),
+        }
 
 
 @app.post("/transcribe_audio_chunks")
@@ -246,13 +652,15 @@ async def transcribe_audio_chunks(
         dict: A dictionary with a message indicating the transcription is complete. If any errors occur
         during the transcription process, they are included in the dictionary.
     """
+    print("translation_language : ", translation_language)
     try:
         # Check if audio chunks folder exists
         audio_chunks_folder_path = Path("./Projects") / project_name / "audio_chunks"
         if not audio_chunks_folder_path.exists():
-            return {
-                "error": f"Audio chunks folder does not exist for project {project_name}"
-            }
+            raise Exception(
+                f"Audio chunks folder does not exist for project {project_name}"
+            )
+
         # Check if transcription folder exists
         transcription_folder_path = Path("./Projects") / project_name / "transcriptions"
         if not transcription_folder_path.exists():
@@ -274,13 +682,16 @@ async def transcribe_audio_chunks(
                     transcription = transcriber.transcribe_audio_to_eng(
                         audio_chunk_path,
                     )
-                elif translation_language == TranslationLanguage.hindi:
+                elif translation_language in [
+                    TranslationLanguage.hindi,
+                    TranslationLanguage.original,
+                ]:
                     transcription = transcriber.transcribe_audio(
                         audio_chunk_path,
                     )
                 else:
                     return False, Exception(
-                        "Invalid language : {translation_language}}"
+                        f"Invalid language : {translation_language}"
                     )
                 return True, transcription
             except Exception as e:
@@ -309,9 +720,15 @@ async def transcribe_audio_chunks(
             if len(failures) > 0:
                 raise Exception(failures)
 
-            return {"message": "Transcription complete."}
+            return {
+                "success": True,
+                "message": "Transcription complete.",
+            }
     except Exception as e:
-        return {"error": str(e)}
+        return {
+            "success": False,
+            "error": str(e),
+        }
 
 
 @app.post("/transcribe_audio", response_model=TranscriptionAPIResponse)
@@ -337,11 +754,101 @@ async def transcribe_audio(request: TranscriptionRequest):
             transcription = transcriber.transcribe_audio(request.audio_path)
         else:
             return {"error": f"Invalid language : {request.language}"}
-        return TranscriptionAPIResponse(
-            audio_path=request.audio_path, transcription=transcription
-        )
+        return {
+            "success": True,
+            "data": TranscriptionAPIResponse(
+                audio_path=request.audio_path, transcription=transcription
+            ),
+        }
+
     except Exception as e:
-        return {"error": str(e)}
+        return {
+            "success": False,
+            "error": str(e),
+        }
+
+
+@app.post("/upload_audio/{project_name}")
+async def upload_audio(project_name: str, file: UploadFile = File(...)):
+    try:
+        # Define the path to the directory where the file will be saved
+        file_save_path = Path("./Projects") / project_name / "original"
+
+        # Create the directory if it does not exist
+        file_save_path.mkdir(parents=True, exist_ok=True)
+
+        # Make sure no file is present in the directory
+        # NOTE: For now we will not allow presence of any file
+        if len([f for f in file_save_path.glob("*") if f.name != ".DS_Store"]) > 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Audio file already exists in project {project_name}",
+            )
+
+        # Define the path to the file
+        file_path = file_save_path / file.filename
+
+        # Save the uploaded file to the new path
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+        return {
+            "success": True,
+            "message": f"File {file.filename} has been uploaded successfully to project {project_name}",
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+        }
+
+
+@app.post("/get_chunks/{project_name}")
+async def get_chunks(project_name: str, bpm: int = Form(...)):
+    try:
+        # Set the path where the original file will be saved
+        original_save_folder_path = Path("./Projects") / project_name / "original"
+        if not original_save_folder_path.exists():
+            raise HTTPException(
+                status_code=404,
+                detail=f"Original folder does not exist for project {project_name}",
+            )
+        # Get the first audio file in the directory
+        audio_files = list(original_save_folder_path.glob("*.mp3")) + list(
+            original_save_folder_path.glob("*.wav")
+        )
+        if not audio_files:
+            raise HTTPException(
+                status_code=404,
+                detail=f"No audio files found in the original folder for project {project_name}",
+            )
+        elif len(audio_files) > 1:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Multiple audio files found in the original folder for project {project_name}",
+            )
+
+        # Use the first audio file
+        file_path = audio_files[0]
+
+        # Set the path where chunks will be saved
+        chunk_save_folder_path = Path("./Projects") / project_name / "audio_chunks"
+        chunk_save_folder_path.mkdir(parents=True, exist_ok=True)
+
+        # Call the function to divide the track
+        divide_track_into_chunks(file_path, bpm, str(chunk_save_folder_path))
+
+        return {
+            "success": True,
+            "message": "Audio file processed and chunks saved.",
+            "chunks_folder": str(chunk_save_folder_path),
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+        }
+    pass
 
 
 @app.post("/get_chunks/")
@@ -380,11 +887,15 @@ async def get_chunks(
         divide_track_into_chunks(file_path, bpm, str(chunk_save_folder_path))
 
         return {
+            "success": True,
             "message": "Audio file processed and chunks saved.",
             "chunks_folder": str(chunk_save_folder_path),
         }
     except Exception as e:
-        return {"error": str(e)}
+        return {
+            "success": False,
+            "error": str(e),
+        }
 
 
 if __name__ == "__main__":
