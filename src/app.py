@@ -8,8 +8,16 @@ from concurrent.futures import as_completed, ThreadPoolExecutor
 import base64
 
 from pydantic import BaseModel
-from fastapi import FastAPI, UploadFile, File, Form, Query, HTTPException, Body
-from fastapi.responses import FileResponse
+from fastapi import (
+    FastAPI,
+    UploadFile,
+    File,
+    Form,
+    Query,
+    HTTPException,
+    Body,
+    Response,
+)
 from pathlib import Path
 
 from divide_track_into_chunks import divide_track_into_chunks
@@ -40,6 +48,120 @@ class UpdatePromptRequest(BaseModel):
     updated_sd_prompt: str
 
 
+class ProjectStatus(BaseModel):
+    project: bool
+    original: str
+    audio_chunks: int
+    transcriptions: int
+    prompt: int
+    images: int
+    video: int
+
+
+class ProjectData(BaseModel):
+    name: str
+    bpm: int
+    chunk_count: int
+    last_updated: str
+
+
+app = FastAPI()
+
+
+@app.post("/update_metadata/{project_name}")
+async def update_metadata(
+    project_name: str,
+):
+    try:
+        # Define the path to the meta_data folder
+        meta_data_folder_path = Path("./Projects") / project_name / "meta_data"
+
+        # Throw error if the meta data folder doesn't exist
+        if not meta_data_folder_path.exists():
+            raise Exception(
+                f"Meta data folder does not exist for project {project_name}"
+            )
+
+        # Throw error if data.json file doesn't exist inside it
+        data_json_path = meta_data_folder_path / "data.json"
+        if not data_json_path.exists():
+            raise Exception(
+                f"data.json file does not exist inside meta data folder for project {project_name}"
+            )
+
+        project_data = ProjectData.model_validate(json.load(open(data_json_path, "r")))
+
+        project_status_data = get_project_status(project_name)
+
+        if project_status_data["success"]:
+            project_status = project_status_data["status"]
+        else:
+            # NOTE: As of now this cannot happen so we will ignore this for now
+            pass
+
+        # update project_data
+        project_data.last_updated = datetime.now().isoformat()
+        project_data.chunk_count = project_status.audio_chunks
+
+        # Save (overwrite) the project data to the data.json file
+        with open(data_json_path, "w") as file:
+            json.dump(ProjectData.model_dump(project_data), file)
+
+        return {
+            "success": True,
+            "message": f"Meta data for project {project_name} has been updated successfully",
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+        }
+
+
+@app.post("/create_metadata/{project_name}")
+async def create_metadata(
+    project_name: str,
+    audio_name: str = Body(...),
+    bpm: int = Body(...),
+):
+    try:
+        # Define the path to the meta_data folder
+        meta_data_folder_path = Path("./Projects") / project_name / "meta_data"
+
+        # Create the meta_data folder if it does not exist
+        meta_data_folder_path.mkdir(parents=True, exist_ok=True)
+
+        # get project status
+        project_status_data = get_project_status(project_name)
+        if project_status_data["success"]:
+            project_status = project_status_data["status"]
+        else:
+            # NOTE: As of now this cannot happen so we will ignore this for now
+            pass
+
+        # Define the path to the data.json file
+        data_json_path = meta_data_folder_path / "data.json"
+        project_data = ProjectData(
+            name=audio_name,
+            bpm=bpm,
+            chunk_count=project_status.audio_chunks,
+            last_updated=datetime.now().isoformat(),
+        )
+        # Save (overwrite) the project data to the data.json file
+        with open(data_json_path, "w") as file:
+            json.dump(ProjectData.model_dump(project_data), file)
+
+        return {
+            "success": True,
+            "message": f"Meta data for project {project_name} has been created successfully",
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+        }
+
+
 @app.post("/create_project/{project_name}")
 async def create_project(project_name: str):
     try:
@@ -68,114 +190,108 @@ async def create_project(project_name: str):
         }
 
 
-class ProjectStatus(BaseModel):
-    project: bool
-    original: bool
-    audio_chunks: int
-    transcriptions: int
-    prompt: int
-    images: int
-    video: int
+def get_project_status(project_name: str):
+    # Define the path to the project's folder
+    project_folder_path = Path("./Projects") / project_name
+
+    status = ProjectStatus(
+        project=False,
+        original="",
+        audio_chunks=0,
+        transcriptions=0,
+        prompt=0,
+        images=0,
+        video=False,
+    )
+    # Check if the project's folder exists
+    if not project_folder_path.exists():
+        return {
+            "success": True,
+            "status": status,
+        }
+    else:
+        status.project = True
+
+    original = Path("./Projects") / project_name / "original"
+    if (not original.exists()) or (
+        len(list(original.glob("*.mp3")) + list(original.glob("*.wav"))) != 1
+    ):
+        return {
+            "success": True,
+            "status": status,
+        }
+    else:
+        original_files = list(original.glob("*.mp3")) + list(original.glob("*.wav"))
+        # As we established there is only single element in this folder
+        status.original = original_files[0]
+
+    # First we will check for
+    audio_chunks_folder_path = project_folder_path / "audio_chunks"
+    # Check if the audio chunks folder exists
+    if not audio_chunks_folder_path.exists():
+        return {
+            "success": True,
+            "status": status,
+        }
+    else:
+        status.audio_chunks = len(
+            list(audio_chunks_folder_path.glob("*.mp3"))
+            + list(audio_chunks_folder_path.glob("*.wav"))
+        )
+
+    transcriptions_folder_path = project_folder_path / "transcriptions"
+    if not transcriptions_folder_path.exists():
+        return {
+            "success": True,
+            "status": status,
+        }
+    else:
+        status.transcriptions = len(list(transcriptions_folder_path.glob("*.json")))
+
+    # Check if the transcriptions folder exists
+    stable_diffusion_prompts_folder_path = (
+        project_folder_path / "stable_diffusion_prompts"
+    )
+    if not stable_diffusion_prompts_folder_path.exists():
+        return {
+            "success": True,
+            "status": status,
+        }
+    else:
+        status.prompt = len(list(stable_diffusion_prompts_folder_path.glob("*.txt")))
+
+    images_folder_path = project_folder_path / "images"
+    # Check if the images folder exists
+    if not images_folder_path.exists():
+        return {
+            "success": True,
+            "status": status,
+        }
+    else:
+        status.images = len(
+            list(images_folder_path.glob("*.jpg"))
+            + list(images_folder_path.glob("*.png"))
+        )
+
+    video_folder_path = project_folder_path / "video"
+    if not video_folder_path.exists():
+        return {
+            "success": True,
+            "status": status,
+        }
+    else:
+        status.video = len(list(video_folder_path.glob("*.mp4")))
+
+    return {
+        "success": True,
+        "status": status,
+    }
 
 
 @app.get("/project_status/{project_name}")
 async def project_status(project_name: str):
     try:
-        # Define the path to the project's folder
-        project_folder_path = Path("./Projects") / project_name
-
-        status = ProjectStatus(
-            project=False,
-            original=False,
-            audio_chunks=0,
-            transcriptions=0,
-            prompt=0,
-            images=0,
-            video=False,
-        )
-        # Check if the project's folder exists
-        if not project_folder_path.exists():
-            return {
-                "success": True,
-                "status": status,
-            }
-        else:
-            status.project = True
-
-        original = Path("./Projects") / project_name / "original"
-        if (not original.exists()) or (
-            len([f for f in original.glob("*") if f.name != ".DS_Store"]) > 0
-        ):
-            return {
-                "success": True,
-                "status": status,
-            }
-        else:
-            status.original = True
-
-        # First we will check for
-        audio_chunks_folder_path = project_folder_path / "audio_chunks"
-        # Check if the audio chunks folder exists
-        if not audio_chunks_folder_path.exists():
-            return {
-                "success": True,
-                "status": status,
-            }
-        else:
-            status.audio_chunks = len(
-                list(audio_chunks_folder_path.glob("*.mp3"))
-                + list(audio_chunks_folder_path.glob("*.wav"))
-            )
-
-        transcriptions_folder_path = project_folder_path / "transcriptions"
-        if not transcriptions_folder_path.exists():
-            return {
-                "success": True,
-                "status": status,
-            }
-        else:
-            status.transcriptions = len(list(transcriptions_folder_path.glob("*.json")))
-
-        # Check if the transcriptions folder exists
-        stable_diffusion_prompts_folder_path = (
-            project_folder_path / "stable_diffusion_prompts"
-        )
-        if not stable_diffusion_prompts_folder_path.exists():
-            return {
-                "success": True,
-                "status": status,
-            }
-        else:
-            status.prompt = len(
-                list(stable_diffusion_prompts_folder_path.glob("*.txt"))
-            )
-
-        images_folder_path = project_folder_path / "images"
-        # Check if the images folder exists
-        if not images_folder_path.exists():
-            return {
-                "success": True,
-                "status": status,
-            }
-        else:
-            status.images = len(
-                list(images_folder_path.glob("*.jpg"))
-                + list(images_folder_path.glob("*.png"))
-            )
-
-        video_folder_path = project_folder_path / "video"
-        if not video_folder_path.exists():
-            return {
-                "success": True,
-                "status": status,
-            }
-        else:
-            status.video = len(list(video_folder_path.glob("*.mp4")))
-
-        return {
-            "success": True,
-            "status": status,
-        }
+        return get_project_status(project_name)
     except Exception as e:
         return {
             "success": False,
@@ -212,6 +328,30 @@ async def get_audio_chunks(project_name: str):
             "success": False,
             "error": str(e),
         }
+
+
+@app.get("/get_images/{project_name}/")
+async def get_images(project_name: str):
+    try:
+        # Define the path to the project's images folder
+        images_folder_path = Path("./Projects") / project_name / "images"
+
+        # Check if the images folder exists
+        if not images_folder_path.exists():
+            raise HTTPException(
+                status_code=404,
+                detail=f"Images folder does not exist for project {project_name}",
+            )
+
+        # Get the paths of all the image files
+        image_paths = [str(image_path) for image_path in images_folder_path.glob("*.*")]
+
+        return {
+            "success": True,
+            "images": image_paths,
+        }
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 
 @app.get("/get_sd_prompts/{project_name}/")
@@ -268,6 +408,36 @@ async def get_sd_prompt(project_name: str, chunk_name: str):
         return {
             "success": True,
             "prompt": prompt,
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+        }
+
+
+@app.get("/get_image/{project_name}/{image_name}")
+async def get_image(project_name: str, image_name: str):
+    try:
+        # Define the path to the image file
+        image_file_path = (
+            Path("./Projects") / project_name / "images" / f"{image_name}.png"
+        )
+
+        # Check if the image file exists
+        if not image_file_path.exists():
+            raise HTTPException(
+                status_code=404,
+                detail=f"Image file {image_name} does not exist for project {project_name}",
+            )
+
+        # Read the image file
+        with open(image_file_path, "rb") as file:
+            image = file.read()
+
+        return {
+            "success": True,
+            "image": Response(content=image, media_type="image/jpeg"),
         }
     except Exception as e:
         return {
@@ -780,9 +950,8 @@ async def upload_audio(project_name: str, file: UploadFile = File(...)):
         # Make sure no file is present in the directory
         # NOTE: For now we will not allow presence of any file
         if len([f for f in file_save_path.glob("*") if f.name != ".DS_Store"]) > 0:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Audio file already exists in project {project_name}",
+            raise Exception(
+                "File already exists. At this moment we accept only single file per project"
             )
 
         # Define the path to the file
