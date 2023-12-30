@@ -7,6 +7,7 @@ import streamlit as st
 
 from streamlit_app.models import Type
 from streamlit_app.chunk_view_logic import handle_chunk_view
+from streamlit_app.get_audio_data import get_audio_chunk
 
 
 def handle_prompt_gene_tab():
@@ -46,13 +47,22 @@ def handle_prompt_gene_tab():
             }
             st.session_state.chunk_prompts_dict = chunk_prompts_dict
             st.session_state.get_chunk_prompt_status = True
-            st.session_state.current_chunk_dict["prompt"]["chunk"] = list(
+            st.session_state.current_chunk_dict[Type.PROMPT.value]["chunk"] = list(
                 chunk_prompts_dict.keys()
             )[0]
+
+            status_code, audio_data = get_audio_chunk(
+                st.session_state.project_name,
+                st.session_state.current_chunk_dict[Type.PROMPT.value]["chunk"],
+            )
+            if audio_data is None:
+                st.error(f"Error in getting audio chunk: {status_code}")
+            st.session_state.current_chunk_dict[Type.PROMPT.value]["audio"] = audio_data
+
             st.session_state.chunk_prompt_count = len(chunk_prompts_dict)
         else:
             # If the request was not successful, display an error message
             st.error(f"Error: {response.status_code}")
 
     if st.session_state.get_chunk_prompt_status:
-        handle_chunk_view(Type.PROMPT, st.session_state.get_audio_chunks_button_data)
+        handle_chunk_view(Type.PROMPT, st.session_state.chunk_prompts_dict)

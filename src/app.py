@@ -431,13 +431,13 @@ async def get_image(project_name: str, image_name: str):
                 detail=f"Image file {image_name} does not exist for project {project_name}",
             )
 
-        # Read the image file
+        # Read the image file and encode it to base64
         with open(image_file_path, "rb") as file:
-            image = file.read()
+            encoded_image = base64.b64encode(file.read()).decode()
 
         return {
             "success": True,
-            "image": Response(content=image, media_type="image/jpeg"),
+            "image": encoded_image,
         }
     except Exception as e:
         return {

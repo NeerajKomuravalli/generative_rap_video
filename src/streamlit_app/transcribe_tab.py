@@ -8,6 +8,7 @@ import streamlit as st
 
 from streamlit_app.models import Type
 from streamlit_app.chunk_view_logic import handle_chunk_view
+from streamlit_app.get_audio_data import get_audio_chunk
 
 
 def handle_transcribe_tab():
@@ -42,9 +43,20 @@ def handle_transcribe_tab():
             # set the get_audio_chunks_button_data to the audio_chunks_dict
             st.session_state.get_audio_chunks_button_data = audio_chunks_dict
             # Set the current state to the first chunk
-            st.session_state.current_chunk_dict["transcript"]["chunk"] = list(
+            st.session_state.current_chunk_dict[Type.TRANSCRIPT.value]["chunk"] = list(
                 audio_chunks_dict.keys()
             )[0]
+
+            status_code, audio_data = get_audio_chunk(
+                st.session_state.project_name,
+                st.session_state.current_chunk_dict[Type.TRANSCRIPT.value]["chunk"],
+            )
+            if audio_data is None:
+                st.error(f"Error in getting audio chunk: {status_code}")
+            st.session_state.current_chunk_dict[Type.TRANSCRIPT.value][
+                "audio"
+            ] = audio_data
+
             # Set the chunk count
             st.session_state.chunk_count = len(audio_chunks_dict)
         else:

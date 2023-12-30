@@ -7,6 +7,7 @@ from PIL import Image
 import streamlit as st
 
 from streamlit_app.models import Type
+from streamlit_app.get_audio_data import get_audio_chunk
 
 
 def handle_chunk_view(type: Type, chunk_data: dict):
@@ -95,6 +96,17 @@ def handle_chunk_view(type: Type, chunk_data: dict):
                 st.error("Invalid type")
 
             # Make a GET request to the 'get_audio_chunk' endpoint
+            status_code, audio_data = get_audio_chunk(
+                st.session_state.project_name,
+                st.session_state.current_chunk_dict[type.value]["chunk"],
+            )
+            if audio_data is None:
+                st.error(f"Error in getting audio chunk: {status_code}")
+
+            # Convert the audio file to a BytesIO object
+            st.session_state.current_chunk_dict[type.value]["audio"] = audio_data
+
+            """
             response_audio_chunk = requests.get(
                 f"http://localhost:8000/get_audio_chunk/{st.session_state.project_name}/{st.session_state.current_chunk_dict[type.value]['chunk']}"
             )
@@ -117,6 +129,7 @@ def handle_chunk_view(type: Type, chunk_data: dict):
                 st.error(
                     f"Error in getting audio chunk: {response_audio_chunk.status_code}"
                 )
+            """
         else:
             st.error(f"Error in getting transcript: {response.status_code}")
 
@@ -137,12 +150,14 @@ def handle_chunk_view(type: Type, chunk_data: dict):
     elif type == Type.IMAGE:
         # Convert the image data to a PIL Image objec
         image_data = st.session_state.current_chunk_dict[type.value]["data"]
-        image = Image.open(BytesIO(image_data))
+        # Decode the base64 string to get the image data
+        decoded_image_data = base64.b64decode(image_data)
+
+        # Convert the image data to a PIL Image object
+        image = Image.open(BytesIO(decoded_image_data))
 
         # Display the image
         st.image(image)
-
-        st.image()
 
     # Add a button to submit the edited transcript
     if type in [Type.TRANSCRIPT, type.PROMPT]:
