@@ -33,6 +33,7 @@ from fastapi_models import (
     TranscriptionRequest,
     TranscriptionAPIResponse,
 )
+from data_exchange.models import ProjectStatus
 
 app = FastAPI()
 
@@ -48,14 +49,14 @@ class UpdatePromptRequest(BaseModel):
     updated_sd_prompt: str
 
 
-class ProjectStatus(BaseModel):
-    project: bool
-    original: str
-    audio_chunks: int
-    transcriptions: int
-    prompt: int
-    images: int
-    video: int
+# class ProjectStatus(BaseModel):
+#     project: bool
+#     original: str
+#     audio_chunks: int
+#     transcriptions: int
+#     prompt: int
+#     images: int
+#     video: str
 
 
 class ProjectData(BaseModel):
@@ -201,7 +202,7 @@ def get_project_status(project_name: str):
         transcriptions=0,
         prompt=0,
         images=0,
-        video=False,
+        video="",
     )
     # Check if the project's folder exists
     if not project_folder_path.exists():
@@ -280,7 +281,19 @@ def get_project_status(project_name: str):
             "status": status,
         }
     else:
-        status.video = len(list(video_folder_path.glob("*.mp4")))
+        video_paths = list(video_folder_path.glob("*.mp4"))
+        # NOTE: The filenames in this case are in the format "%Y%m%d_%H%M%S" which is sortable because it goes from the largest time unit (year) to the smallest (second). This means we can find the latest file by simply sorting the list of filenames and picking the last one
+        video_paths.sort()
+        if len(video_paths) == 0:
+            status.video = ""
+            return {
+                "success": True,
+                "status": status,
+            }
+        # Pick the most recent video
+        latest_video_path = video_paths[-1]
+
+        status.video = latest_video_path
 
     return {
         "success": True,

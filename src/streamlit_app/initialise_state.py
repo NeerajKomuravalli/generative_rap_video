@@ -1,6 +1,8 @@
 import streamlit as st
 
 from segmind.settings import STABLE_DIFFUSION_STYLES
+from streamlit_app.project_status import get_project_status
+from data_exchange.models import ProjectStatus
 
 
 def init_state():
@@ -10,7 +12,7 @@ def init_state():
         st.session_state.project_name_state = False
         st.session_state.project_name = ""
     if "project_status" not in st.session_state:
-        st.session_state.project_status = None
+        st.session_state.project_status = ProjectStatus()
 
     # Add states for the app if not added already
     if "upload_button_state" not in st.session_state:
@@ -54,11 +56,11 @@ def init_state():
                 "data": None,
             },
         }
-        st.session_state.current_chunk = None
-        st.session_state.previous_chunk = None
+        # st.session_state.current_chunk = None
+        # st.session_state.previous_chunk = None
         st.session_state.chunk_count = 0
-        st.session_state.transcript = None
-        st.session_state.audio = None
+        # st.session_state.transcript = None
+        # st.session_state.audio = None
     if "stable_diffussion_style" not in st.session_state:
         st.session_state.stable_diffussion_style = STABLE_DIFFUSION_STYLES[0]
     if "prompt_generation_completion" not in st.session_state:

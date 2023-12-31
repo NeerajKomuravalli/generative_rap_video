@@ -1,6 +1,8 @@
 import requests
 import streamlit as st
 
+from streamlit_app.project_status import get_project_status
+
 
 def handle_project_tab():
     # Audio files uploader
@@ -29,17 +31,8 @@ def handle_project_tab():
                     f"Failed to create project with status code {response.status_code}"
                 )
 
-            url = f"http://localhost:8000/project_status/{project_name}"
-
-            # Send a POST request to the endpoint
-            response = requests.get(url)
-            if response.status_code == 200:
-                if response.json()["success"] is True:
-                    st.session_state.project_status = response.json()["status"]
-                else:
-                    error = response.json()["error"]
-                    st.error(f"Failed to get project status with {error}")
+            success, data = get_project_status(project_name)
+            if success:
+                st.session_state.project_status = data
             else:
-                st.error(
-                    f"Failed to get project status with code {response.status_code}"
-                )
+                st.error(data)

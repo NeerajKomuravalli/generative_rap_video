@@ -16,3 +16,6 @@ def handle_video_gen_tab():
         else:
             st.write(response.json()["error"])
             st.error("Failed to generate video.")
+
+    if st.session_state.project_status.video != "":
+        st.video(st.session_state.project_status.video)
