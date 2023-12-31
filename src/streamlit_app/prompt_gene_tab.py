@@ -31,7 +31,10 @@ def handle_prompt_gene_tab():
         else:
             st.error("Failed to generate prompts.")
 
-    if st.session_state.prompt_generation_completion or st.button("View Prompts"):
+    if (
+        st.session_state.prompt_generation_completion
+        or st.session_state.project_status.prompt > 0
+    ):
         url = f"http://localhost:8000/get_sd_prompts/{st.session_state.project_name}"
         response = requests.get(url)
         # If the request was successful

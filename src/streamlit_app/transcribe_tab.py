@@ -13,7 +13,8 @@ from streamlit_app.get_audio_data import get_audio_chunk
 
 def handle_transcribe_tab():
     # When the user clicks the 'Get Audio Chunks' button
-    if st.button("View transcript and audio"):
+    # if st.button("View transcript and audio"):
+    if st.session_state.project_status.transcriptions > 0:
         # if st.session_state.project_name_state is True:
         if st.session_state.project_name_state is False:
             st.error("Please enter the project name")

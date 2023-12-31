@@ -38,7 +38,10 @@ def handle_image_gen_tab():
         else:
             st.error("Failed to start stable diffusion.")
 
-    if st.session_state.image_generation_completion or st.button("View Images"):
+    if (
+        st.session_state.image_generation_completion
+        or st.session_state.project_status.images > 0
+    ):
         url = f"http://localhost:8000/get_images/{st.session_state.project_name}"
         response = requests.get(url)
         # If the request was successful
