@@ -49,16 +49,6 @@ class UpdatePromptRequest(BaseModel):
     updated_sd_prompt: str
 
 
-# class ProjectStatus(BaseModel):
-#     project: bool
-#     original: str
-#     audio_chunks: int
-#     transcriptions: int
-#     prompt: int
-#     images: int
-#     video: str
-
-
 class ProjectData(BaseModel):
     name: str
     bpm: int

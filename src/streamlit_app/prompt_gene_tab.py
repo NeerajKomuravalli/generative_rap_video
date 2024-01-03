@@ -8,28 +8,15 @@ import streamlit as st
 from streamlit_app.models import Type
 from streamlit_app.chunk_view_logic import handle_chunk_view
 from streamlit_app.get_audio_data import get_audio_chunk
+from streamlit_app.generate_prompt import generate_prompt
 
 
 def handle_prompt_gene_tab():
     # Add a button to generate a prompt
     if st.button("Generate Prompt"):
-        # Define the URL of the endpoint
-        url = "http://localhost:8000/generate_prompts"
-
-        # Define the data to be sent to the endpoint
-        data = {
-            "project_name": st.session_state.project_name,
-        }
-
-        # Send a POST request to the endpoint
-        response = requests.post(url, data=data)
-
-        # Check the response
-        if response.status_code == 200:
-            st.session_state.prompt_generation_completion = True
-            st.success("Prompts generated successfully!")
-        else:
-            st.error("Failed to generate prompts.")
+        succcess, message = generate_prompt()
+        if not succcess:
+            st.error(message)
 
     if (
         st.session_state.prompt_generation_completion

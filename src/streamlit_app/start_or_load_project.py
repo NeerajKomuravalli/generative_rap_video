@@ -9,10 +9,14 @@ from streamlit_app.update_meta_data import update_metadata
 def start_or_load_project():
     with st.form(key="my_form"):
         project_name = st.text_input("Enter the project name")
-        ## audio file
-        audio_file = st.file_uploader("Upload your audio file", type=["mp3", "wav"])
-        ## bpm
-        bpm = st.number_input("Enter the BPM of the track")
+        if st.session_state.project_status.original == "":
+            ## audio file
+            audio_file = st.file_uploader("Upload your audio file", type=["mp3", "wav"])
+            ## bpm
+            bpm = st.number_input("Enter the BPM of the track")
+        else:
+            audio_file = None
+            bpm = None
 
         submit_button = st.form_submit_button(label="Submit")
 
@@ -63,11 +67,12 @@ def start_or_load_project():
                     )
                     return
                 # If the project already has an audio file and bpm, we don't need to do anything
+
                 status_message.success("Project loaded successfully")
                 return
             if not (audio_file and bpm):
-                # This means user has not added an audio file or bpm
-                status_message.error("Please add an audio file and bpm")
+                # This means user has not added an audio file or bpm. This is valid when user wants to just create a project
+                status_message.success("Project created successfully")
                 return
 
             audio_uploaded = False
@@ -92,6 +97,12 @@ def start_or_load_project():
                     status_message.success("Audio file uploaded successfully!")
             else:
                 status_message.error(f"Error for audio upload : {response.status_code}")
+
+            success, data = get_project_status(project_name)
+            if success:
+                st.session_state.project_status = data
+            else:
+                st.error(data)
 
             if audio_uploaded:
                 # Create meta data
@@ -145,7 +156,18 @@ def start_or_load_project():
                         f"Error in audio chunking : {response.status_code}"
                     )
                     return
-                update_metadata(st.session_state.project_name)
+                success, message = update_metadata(st.session_state.project_name)
+                if success:
+                    status_message.success(message)
+                else:
+                    status_message.error(message)
+                    return
+
+                success, data = get_project_status(project_name)
+                if success:
+                    st.session_state.project_status = data
+                else:
+                    st.error(data)
 
             if audio_uploaded and chunks_created:
                 status_message.text("Transcribing audio chunks...")
@@ -178,4 +200,16 @@ def start_or_load_project():
                         f"Error in transcription : {response.status_code}"
                     )
                     return
-                update_metadata(st.session_state.project_name)
+
+                success, message = update_metadata(st.session_state.project_name)
+                if success:
+                    status_message.success(message)
+                else:
+                    status_message.error(message)
+                    return
+
+                success, data = get_project_status(project_name)
+                if success:
+                    st.session_state.project_status = data
+                else:
+                    st.error(data)

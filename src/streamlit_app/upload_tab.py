@@ -88,7 +88,12 @@ def handle_upload_tab():
                     status_message.text("Error")
                     st.error(f"Error in audio chunking : {response.status_code}")
 
-                update_metadata(st.session_state.project_name)
+                success, message = update_metadata(st.session_state.project_name)
+                if success:
+                    status_message.success(message)
+                else:
+                    status_message.error(message)
+                    return
 
             if audio_uploaded and chunks_created:
                 status_message.text("Transcribing audio chunks...")
@@ -120,4 +125,9 @@ def handle_upload_tab():
                     status_message.text("Error : ")
                     st.error(f"Error in transcription : {response.status_code}")
 
-                update_metadata(st.session_state.project_name)
+                success, message = update_metadata(st.session_state.project_name)
+                if success:
+                    status_message.success(message)
+                else:
+                    status_message.error(message)
+                    return

@@ -12,9 +12,12 @@ def update_metadata(project_name: str):
     # Check the response
     if response.status_code == 200:
         if response.json()["success"] is True:
-            st.success("Metadata updated successfully!")
+            return True, "Metadata updated successfully!"
         else:
             error = response.json()["error"]
-            st.error(f"Failed to update metadata with {error}")
+            return False, f"Failed to update metadata with {error}"
     else:
-        st.error(f"Failed to update metadata with status code {response.status_code}")
+        return (
+            False,
+            f"Failed to update metadata with status code {response.status_code}",
+        )
