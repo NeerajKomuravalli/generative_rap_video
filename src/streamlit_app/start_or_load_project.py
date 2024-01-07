@@ -4,6 +4,10 @@ import streamlit as st
 
 from streamlit_app.project_status import get_project_status
 from streamlit_app.update_meta_data import update_metadata
+from streamlit_app.generate_prompt import generate_prompt
+from streamlit_app.generate_image import generate_image
+from streamlit_app.generate_video import generate_video
+from streamlit_app.get_meta_data import get_metadata
 
 
 def start_or_load_project():
@@ -169,7 +173,20 @@ def start_or_load_project():
                 else:
                     st.error(data)
 
-            if audio_uploaded and chunks_created:
+            success, data = get_metadata(st.session_state.project_name)
+            if success:
+                st.session_state.metadata = data
+            else:
+                st.error(data)
+
+            if (
+                audio_uploaded
+                and chunks_created
+                and (
+                    st.session_state.metadata.chunk_count
+                    == st.session_state.project_status.audio_chunks
+                )
+            ):
                 status_message.text("Transcribing audio chunks...")
                 # Transcribe the audio chunks
                 url = "http://localhost:8000/transcribe_audio_chunks/"
@@ -209,6 +226,51 @@ def start_or_load_project():
                     return
 
                 success, data = get_project_status(project_name)
+                if success:
+                    st.session_state.project_status = data
+                else:
+                    st.error(data)
+
+            if (
+                st.session_state.metadata.chunk_count
+                == st.session_state.project_status.transcriptions
+            ):
+                success, message = generate_prompt()
+                if not success:
+                    st.error(message)
+                    return
+
+                success, data = get_project_status(st.session_state.project_name)
+                if success:
+                    st.session_state.project_status = data
+                else:
+                    st.error(data)
+
+            if (
+                st.session_state.metadata.chunk_count
+                == st.session_state.project_status.prompt
+            ):
+                success, message = generate_image()
+                if not success:
+                    st.error(message)
+                    return
+
+                success, data = get_project_status(st.session_state.project_name)
+                if success:
+                    st.session_state.project_status = data
+                else:
+                    st.error(data)
+
+            if (
+                st.session_state.metadata.chunk_count
+                == st.session_state.project_status.images
+            ):
+                success, message = generate_video()
+                if not success:
+                    st.error(message)
+                    return
+
+                success, data = get_project_status(st.session_state.project_name)
                 if success:
                     st.session_state.project_status = data
                 else:

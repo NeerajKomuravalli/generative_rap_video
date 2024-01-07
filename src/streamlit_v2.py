@@ -10,5 +10,3 @@ st.title("Generate Video")
 
 
 start_or_load_project()
-
-run_all()

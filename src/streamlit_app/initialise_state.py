@@ -3,6 +3,7 @@ import streamlit as st
 from segmind.settings import STABLE_DIFFUSION_STYLES
 from streamlit_app.project_status import get_project_status
 from data_exchange.models import ProjectStatus
+from data_exchange.models import ProjectData
 
 
 def init_state():
@@ -13,7 +14,8 @@ def init_state():
         st.session_state.project_name = ""
     if "project_status" not in st.session_state:
         st.session_state.project_status = ProjectStatus()
-
+    if "metadata" not in st.session_state:
+        st.session_state.metadata = ProjectData()
     # Add states for the app if not added already
     if "upload_button_state" not in st.session_state:
         st.session_state.upload_button_state = False

@@ -1,7 +1,7 @@
 import os
 import shutil
 from datetime import datetime
-from typing import Dict
+from typing import Dict, Any
 import json
 from enum import Enum
 from concurrent.futures import as_completed, ThreadPoolExecutor
@@ -34,6 +34,8 @@ from fastapi_models import (
     TranscriptionAPIResponse,
 )
 from data_exchange.models import ProjectStatus
+from data_exchange.models import ProjectData
+
 
 app = FastAPI()
 
@@ -49,14 +51,39 @@ class UpdatePromptRequest(BaseModel):
     updated_sd_prompt: str
 
 
-class ProjectData(BaseModel):
-    name: str
-    bpm: int
-    chunk_count: int
-    last_updated: str
-
-
 app = FastAPI()
+
+
+@app.get("/get_metadata/{project_name}")
+async def get_metadata(project_name: str) -> Dict[str, Any]:
+    try:
+        # Define the path to the meta_data folder
+        meta_data_folder_path = Path("./Projects") / project_name / "meta_data"
+
+        # Throw error if the meta data folder doesn't exist
+        if not meta_data_folder_path.exists():
+            raise HTTPException(
+                status_code=404,
+                detail=f"Meta data folder does not exist for project {project_name}",
+            )
+
+        # Throw error if data.json file doesn't exist inside it
+        data_json_path = meta_data_folder_path / "data.json"
+        if not data_json_path.exists():
+            raise HTTPException(
+                status_code=404,
+                detail=f"data.json file does not exist inside meta data folder for project {project_name}",
+            )
+
+        # Load the project data from the data.json file
+        project_data = json.load(open(data_json_path, "r"))
+
+        return {"success": True, "metadata": project_data}
+    except Exception as e:
+        return {
+            "success": False,
+            "error": str(e),
+        }
 
 
 @app.post("/update_metadata/{project_name}")
