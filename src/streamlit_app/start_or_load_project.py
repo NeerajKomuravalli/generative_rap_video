@@ -22,7 +22,7 @@ def start_or_load_project():
             audio_file = None
             bpm = None
 
-        submit_button = st.form_submit_button(label="Submit")
+        submit_button = st.form_submit_button(label="Generate Video")
 
         status_message = st.empty()
         if submit_button:
@@ -237,8 +237,9 @@ def start_or_load_project():
             ):
                 success, message = generate_prompt()
                 if not success:
-                    st.error(message)
+                    status_message.error(message)
                     return
+                status_message.success("Prompt generated successfully!")
 
                 success, data = get_project_status(st.session_state.project_name)
                 if success:
@@ -252,8 +253,9 @@ def start_or_load_project():
             ):
                 success, message = generate_image()
                 if not success:
-                    st.error(message)
+                    status_message.error(message)
                     return
+                status_message.success("Image generated successfully!")
 
                 success, data = get_project_status(st.session_state.project_name)
                 if success:
@@ -267,11 +269,15 @@ def start_or_load_project():
             ):
                 success, message = generate_video()
                 if not success:
-                    st.error(message)
+                    status_message.error(message)
                     return
+                status_message.success("Video generated successfully!")
 
                 success, data = get_project_status(st.session_state.project_name)
                 if success:
                     st.session_state.project_status = data
                 else:
                     st.error(data)
+
+            if st.session_state.project_status.video != "":
+                st.video(st.session_state.project_status.video)

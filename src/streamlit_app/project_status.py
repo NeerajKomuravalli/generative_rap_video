@@ -1,9 +1,10 @@
 import requests
+from typing import Tuple
 
 from data_exchange.models import ProjectStatus
 
 
-def get_project_status(project_name):
+def get_project_status(project_name) -> Tuple[bool, ProjectStatus]:
     url = f"http://localhost:8000/project_status/{project_name}"
 
     # Send a POST request to the endpoint
