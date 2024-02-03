@@ -105,31 +105,6 @@ def handle_chunk_view(type: Type, chunk_data: dict):
 
             # Convert the audio file to a BytesIO object
             st.session_state.current_chunk_dict[type.value]["audio"] = audio_data
-
-            """
-            response_audio_chunk = requests.get(
-                f"http://localhost:8000/get_audio_chunk/{st.session_state.project_name}/{st.session_state.current_chunk_dict[type.value]['chunk']}"
-            )
-
-            audio_data = response_audio_chunk.json()
-            # If the request was successful
-            if (response_audio_chunk.status_code == 200) and (
-                audio_data["success"] is True
-            ):
-                audio_file = audio_data["audio"]
-
-                # Decode the base64 string to bytes
-                audio_bytes = base64.b64decode(audio_file)
-
-                # Convert the audio file to a BytesIO object
-                st.session_state.current_chunk_dict[type.value]["audio"] = BytesIO(
-                    audio_bytes
-                )
-            else:
-                st.error(
-                    f"Error in getting audio chunk: {response_audio_chunk.status_code}"
-                )
-            """
         else:
             st.error(f"Error in getting transcript: {response.status_code}")
 

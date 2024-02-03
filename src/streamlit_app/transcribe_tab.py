@@ -1,7 +1,4 @@
 import requests
-import json
-import base64
-from io import BytesIO
 
 from pathlib import Path
 import streamlit as st
@@ -14,7 +11,10 @@ from streamlit_app.get_audio_data import get_audio_chunk
 def handle_transcribe_tab():
     # When the user clicks the 'Get Audio Chunks' button
     # if st.button("View transcript and audio"):
-    if st.session_state.project_status.transcriptions > 0:
+    if (
+        st.session_state.project_status.transcriptions > 0
+        and st.session_state.transcribe_tab_load is True
+    ):
         # if st.session_state.project_name_state is True:
         if st.session_state.project_name_state is False:
             st.error("Please enter the project name")
@@ -47,7 +47,6 @@ def handle_transcribe_tab():
             st.session_state.current_chunk_dict[Type.TRANSCRIPT.value]["chunk"] = list(
                 audio_chunks_dict.keys()
             )[0]
-
             status_code, audio_data = get_audio_chunk(
                 st.session_state.project_name,
                 st.session_state.current_chunk_dict[Type.TRANSCRIPT.value]["chunk"],
@@ -60,6 +59,7 @@ def handle_transcribe_tab():
 
             # Set the chunk count
             st.session_state.chunk_count = len(audio_chunks_dict)
+            st.session_state.transcribe_tab_load = False
         else:
             # If the request was not successful, display an error message
             st.error(f"Error: {response.status_code}")

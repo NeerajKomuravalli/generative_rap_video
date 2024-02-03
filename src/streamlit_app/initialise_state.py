@@ -23,7 +23,7 @@ def init_state():
         st.session_state.get_audio_chunks_button_state = False
         st.session_state.get_audio_chunks_button_data = None
     # Initialize the current chunk in the session state for displaying the chunk related information
-    if "current_chunk" not in st.session_state:
+    if "current_chunk_dict" not in st.session_state:
         st.session_state.current_chunk_dict = {
             "transcript": {
                 "chunk": None,
@@ -58,11 +58,7 @@ def init_state():
                 "data": None,
             },
         }
-        # st.session_state.current_chunk = None
-        # st.session_state.previous_chunk = None
         st.session_state.chunk_count = 0
-        # st.session_state.transcript = None
-        # st.session_state.audio = None
     if "stable_diffussion_style" not in st.session_state:
         st.session_state.stable_diffussion_style = STABLE_DIFFUSION_STYLES[0]
     if "prompt_generation_completion" not in st.session_state:
@@ -78,3 +74,6 @@ def init_state():
         st.session_state.prompt = None
     if "get_chunk_image_status" not in st.session_state:
         st.session_state.get_chunk_image_status = False
+    # Tab loading states
+    if "transcribe_tab_load" not in st.session_state:
+        st.session_state.transcribe_tab_load = True

@@ -2,6 +2,7 @@ import requests
 
 import streamlit as st
 
+from streamlit_app.project_status import get_project_status
 from streamlit_app.generate_prompt import generate_prompt
 from streamlit_app.generate_image import generate_image
 from streamlit_app.generate_video import generate_video
@@ -11,6 +12,7 @@ from streamlit_app.upload_audio import upload_audio
 from streamlit_app.create_metadata import create_metadata
 from streamlit_app.divide_audio_to_chunks import divide_audio_to_chunks
 from streamlit_app.transcribe_audio_chunks import transcribe_audio_chunks
+from streamlit_app.display_video import display as display_video
 
 
 def start_or_load_project():
@@ -53,8 +55,23 @@ def start_or_load_project():
                     )
                     return
                 # If the project already has an audio file and bpm, we don't need to do anything
+                success, data = get_project_status(st.session_state.project_name)
+                if success:
+                    st.session_state.project_status = data
+                else:
+                    st.error(data)
+                    return
 
-                status_message.success("Project loaded successfully")
+                if st.session_state.project_status.video != "":
+                    status_message.success("Project loaded successfully")
+                    display_video()
+                    return
+                else:
+                    # NOTE: This is a temporary fix. Based on how much the project is complete, we will start the process
+                    status_message.error(
+                        "Looks like the project is not complete. Please create a new project and start the process"
+                    )
+                    return
             else:
                 if not (audio_file and bpm):
                     # This means user has not added an audio file or bpm. This is valid when user wants to just create a project
@@ -159,4 +176,7 @@ def start_or_load_project():
                     status_message.success("Video generated successfully!")
 
             if video_created:
-                st.video(st.session_state.project_status.video)
+                display_video()
+        else:
+            if st.session_state.project_status.video != "":
+                display_video()

@@ -11,17 +11,6 @@ from streamlit_app.generate_image import generate_image
 
 
 def handle_image_gen_tab():
-    # Add a dropdown for the list of styles
-    st.session_state.stable_diffussion_style = st.selectbox(
-        "Select Style", STABLE_DIFFUSION_STYLES, index=0
-    )
-
-    # Add a button to start the stable diffusion
-    if st.button("Start Stable Diffusion"):
-        success, message = generate_image()
-        if not success:
-            st.error(message)
-
     if (
         st.session_state.image_generation_completion
         or st.session_state.project_status.images > 0
@@ -59,3 +48,18 @@ def handle_image_gen_tab():
 
     if st.session_state.get_chunk_image_status:
         handle_chunk_view(Type.IMAGE, st.session_state.chunk_images_dict)
+
+
+def handle_image_gen_tab_v1():
+    # Add a dropdown for the list of styles
+    st.session_state.stable_diffussion_style = st.selectbox(
+        "Select Style", STABLE_DIFFUSION_STYLES, index=0
+    )
+
+    # Add a button to start the stable diffusion
+    if st.button("Start Stable Diffusion"):
+        success, message = generate_image()
+        if not success:
+            st.error(message)
+
+    handle_image_gen_tab()

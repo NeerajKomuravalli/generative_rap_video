@@ -12,12 +12,6 @@ from streamlit_app.generate_prompt import generate_prompt
 
 
 def handle_prompt_gene_tab():
-    # Add a button to generate a prompt
-    if st.button("Generate Prompt"):
-        succcess, message = generate_prompt()
-        if not succcess:
-            st.error(message)
-
     if (
         st.session_state.prompt_generation_completion
         or st.session_state.project_status.prompt > 0
@@ -56,3 +50,13 @@ def handle_prompt_gene_tab():
 
     if st.session_state.get_chunk_prompt_status:
         handle_chunk_view(Type.PROMPT, st.session_state.chunk_prompts_dict)
+
+
+def handle_prompt_gene_tab_v1():
+    # Add a button to generate a prompt
+    if st.button("Generate Prompt"):
+        succcess, message = generate_prompt()
+        if not succcess:
+            st.error(message)
+
+    handle_prompt_gene_tab()

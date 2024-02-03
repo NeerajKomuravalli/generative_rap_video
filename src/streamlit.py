@@ -4,8 +4,8 @@ from streamlit_app.initialise_state import init_state
 from streamlit_app.project_tab import handle_project_tab
 from streamlit_app.upload_tab import handle_upload_tab
 from streamlit_app.transcribe_tab import handle_transcribe_tab
-from streamlit_app.prompt_gene_tab import handle_prompt_gene_tab
-from streamlit_app.image_gen_tab import handle_image_gen_tab
+from streamlit_app.prompt_gene_tab import handle_prompt_gene_tab_v1
+from streamlit_app.image_gen_tab import handle_image_gen_tab_v1
 from streamlit_app.video_gen_tab import handle_video_gen_tab
 
 
@@ -43,10 +43,10 @@ with transcribe_tab:
     handle_transcribe_tab()
 
 with prompt_gene_tab:
-    handle_prompt_gene_tab()
+    handle_prompt_gene_tab_v1()
 
 with image_gen_tab:
-    handle_image_gen_tab()
+    handle_image_gen_tab_v1()
 
 with video_gen_tab:
     handle_video_gen_tab()
