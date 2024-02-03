@@ -14,7 +14,7 @@ def handle_image_gen_tab():
     if (
         st.session_state.image_generation_completion
         or st.session_state.project_status.images > 0
-    ):
+    ) and (st.session_state.image_tab_load):
         url = f"http://localhost:8000/get_images/{st.session_state.project_name}"
         response = requests.get(url)
         # If the request was successful
@@ -41,7 +41,7 @@ def handle_image_gen_tab():
             if audio_data is None:
                 st.error(f"Error in getting audio chunk: {status_code}")
             st.session_state.current_chunk_dict[Type.IMAGE.value]["audio"] = audio_data
-
+            st.session_state.image_tab_load = False
         else:
             # If the request was not successful, display an error message
             st.error(f"Error: {response.status_code}")

@@ -77,3 +77,7 @@ def init_state():
     # Tab loading states
     if "transcribe_tab_load" not in st.session_state:
         st.session_state.transcribe_tab_load = True
+    if "prompt_tab_load" not in st.session_state:
+        st.session_state.prompt_tab_load = True
+    if "image_tab_load" not in st.session_state:
+        st.session_state.image_tab_load = True

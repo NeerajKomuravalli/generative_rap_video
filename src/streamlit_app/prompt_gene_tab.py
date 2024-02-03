@@ -15,7 +15,7 @@ def handle_prompt_gene_tab():
     if (
         st.session_state.prompt_generation_completion
         or st.session_state.project_status.prompt > 0
-    ):
+    ) and (st.session_state.prompt_tab_load):
         url = f"http://localhost:8000/get_sd_prompts/{st.session_state.project_name}"
         response = requests.get(url)
         # If the request was successful
@@ -44,6 +44,7 @@ def handle_prompt_gene_tab():
             st.session_state.current_chunk_dict[Type.PROMPT.value]["audio"] = audio_data
 
             st.session_state.chunk_prompt_count = len(chunk_prompts_dict)
+            st.session_state.prompt_tab_load = False
         else:
             # If the request was not successful, display an error message
             st.error(f"Error: {response.status_code}")
