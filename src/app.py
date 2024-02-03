@@ -1,7 +1,7 @@
 import os
 import shutil
 from datetime import datetime
-from typing import Dict, Any
+from typing import Dict, Any, List
 import json
 from enum import Enum
 from concurrent.futures import as_completed, ThreadPoolExecutor
@@ -36,7 +36,6 @@ from fastapi_models import (
 from data_exchange.models import ProjectStatus
 from data_exchange.models import ProjectData
 
-
 app = FastAPI()
 
 transcriber = TranscribeAudioHF()
@@ -47,8 +46,8 @@ MAX_MODAL_WORKERS = 10
 StableDiffStyle = Enum("Style", {style: style for style in STABLE_DIFFUSION_STYLES})
 
 
-class UpdatePromptRequest(BaseModel):
-    updated_sd_prompt: str
+class UpdatePrompt(BaseModel):
+    prompt: str
 
 
 app = FastAPI()
@@ -572,7 +571,7 @@ async def get_transcriptions(project_name: str):
 async def update_sd_prompt(
     project_name: str,
     file_name: str,
-    updated_sd_prompt: UpdatePromptRequest = Body(...),
+    updated_sd_prompt: UpdatePrompt = Body(None),
 ):
     try:
         # Define the path to the transcription file
@@ -592,7 +591,7 @@ async def update_sd_prompt(
 
         # Update the transcription file
         with open(prompt_file_path, "w") as file:
-            file.write(updated_sd_prompt.updated_sd_prompt)
+            file.write(updated_sd_prompt.prompt)
 
         return {
             "success": True,
@@ -687,7 +686,9 @@ async def generate_video(
 
 @app.post("/stable_diffusion")
 async def run_stable_diffusion(
-    project_name: str = Form(...), style: StableDiffStyle = Query(...)
+    project_name: str = Form(...),
+    style: StableDiffStyle = Query(...),
+    chunks: List[str] = Query([]),
 ):
     """
     Run the stable diffusion process for a given project's prompts.
@@ -700,6 +701,7 @@ async def run_stable_diffusion(
     Args:
         project_name (str): The name of the project.
         style (str): The style to be used in the stable diffusion process.
+        chunks (List[str]): A list of chunk names on which stable diffusion should be applied. If the list of empty we apply stable diffusion on all prompts
 
     Returns:
         dict: A dictionary with a message indicating the stable diffusion process is complete. If any errors occur
@@ -727,6 +729,10 @@ async def run_stable_diffusion(
         # read prompts from prompts_folder_path
         prompts = {}
         for prompt_path in prompts_folder_path.iterdir():
+            # Run stable diffusion only on some given prompts
+            if len(chunks) > 0:
+                if prompt_path.stem not in chunks:
+                    continue
             # Check if the file is a txt file
             if prompt_path.suffix != ".txt":
                 continue

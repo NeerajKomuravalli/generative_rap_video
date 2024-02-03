@@ -106,20 +106,26 @@ def handle_chunk_view(type: Type, chunk_data: dict):
             # Convert the audio file to a BytesIO object
             st.session_state.current_chunk_dict[type.value]["audio"] = audio_data
         else:
-            st.error(f"Error in getting transcript: {response.status_code}")
+            st.error(f"Error in getting {type.value}: {response.status_code}")
 
         # Set the previous chunk to the current chunk
         st.session_state.previous_chunk_dict[type.value][
             "chunk"
         ] = st.session_state.current_chunk_dict[type.value]["chunk"]
 
-    if type in [Type.TRANSCRIPT, type.PROMPT]:
+    if type == Type.TRANSCRIPT:
         # Display the transcript
-        transcript_edited = st.text_area(
+        edited: str = st.text_area(
             "Transcript",
             json.dumps(
                 st.session_state.current_chunk_dict[type.value]["data"], indent=4
             ),
+            height=250,
+        )
+    elif type == Type.PROMPT:
+        edited: str = st.text_area(
+            "Prompt",
+            st.session_state.current_chunk_dict[type.value]["data"],
             height=250,
         )
     elif type == Type.IMAGE:
@@ -137,25 +143,48 @@ def handle_chunk_view(type: Type, chunk_data: dict):
     # Add a button to submit the edited transcript
     if type in [Type.TRANSCRIPT, type.PROMPT]:
         if st.button("Update", key=f"{type.value}_update"):
-            # Define the URL of the endpoint
-            url = f"http://localhost:8000/update_transcription/{st.session_state.project_name}/{st.session_state.current_chunk_dict[type.value]['chunk']}"
+            if type == Type.TRANSCRIPT:
+                # Define the URL of the endpoint
+                url = f"http://localhost:8000/update_transcription/{st.session_state.project_name}/{st.session_state.current_chunk_dict[type.value]['chunk']}"
+                # Define the data to be sent to the endpoint
+                data = json.loads(edited)
 
-            # Define the data to be sent to the endpoint
-            data = json.loads(transcript_edited)
+                # Send a POST request to the endpoint
+                response = requests.put(url, json=data)
+                # Check the response
+                if response.status_code == 200 and response.json()["success"] is True:
+                    st.session_state.current_chunk_dict[type.value][
+                        "data"
+                    ] = json.loads(edited)
+                    st.success("Transcript updated successfully!")
+                    # Tracking what has been updated by the user
+                    st.session_state.updates[type.value].append(
+                        st.session_state.current_chunk_dict[type.value]["chunk"]
+                    )
+                else:
+                    # display message on ui
+                    st.write(response.json())
+                    st.error("Failed to update transcript.")
+            elif type == Type.PROMPT:
+                # Define the URL of the endpoint
+                url = f"http://localhost:8000/update_sd_prompt/{st.session_state.project_name}/{st.session_state.current_chunk_dict[type.value]['chunk']}"
 
-            # Send a POST request to the endpoint
-            response = requests.put(url, json=data)
-            st.write(response.json())
-            # Check the response
-            if response.status_code == 200 and response.json()["success"] is True:
-                st.session_state.current_chunk_dict[type.value]["data"] = json.loads(
-                    transcript_edited
-                )
-                st.success("Transcript updated successfully!")
-            else:
-                # display message on ui
-                st.write(response.json())
-                st.error("Failed to update transcript.")
+                data = {"prompt": edited}
+
+                # Send a POST request to the endpoint
+                response = requests.put(url, json=data)
+                # Check the response
+                if response.status_code == 200 and response.json()["success"] is True:
+                    st.session_state.current_chunk_dict[type.value]["data"] = edited
+                    st.success("Prompt updated successfully!")
+                    # Tracking what has been updated by the user
+                    st.session_state.updates[type.value].append(
+                        st.session_state.current_chunk_dict[type.value]["chunk"]
+                    )
+                else:
+                    # display message on ui
+                    st.write(response.json())
+                    st.error("Failed to update prompt.")
 
     # Display the audio
     st.audio(

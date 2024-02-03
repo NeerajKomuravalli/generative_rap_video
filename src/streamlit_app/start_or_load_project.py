@@ -1,5 +1,3 @@
-import requests
-
 import streamlit as st
 
 from streamlit_app.project_status import get_project_status
@@ -13,24 +11,22 @@ from streamlit_app.create_metadata import create_metadata
 from streamlit_app.divide_audio_to_chunks import divide_audio_to_chunks
 from streamlit_app.transcribe_audio_chunks import transcribe_audio_chunks
 from streamlit_app.display_video import display as display_video
+from streamlit_app.initialise_state import init_state
 
 
 def start_or_load_project():
     with st.form(key="my_form"):
         project_name = st.text_input("Enter the project name")
-        if st.session_state.project_status.original == "":
-            ## audio file
-            audio_file = st.file_uploader("Upload your audio file", type=["mp3", "wav"])
-            ## bpm
-            bpm = st.number_input("Enter the BPM of the track")
-        else:
-            audio_file = None
-            bpm = None
+        ## audio file
+        audio_file = st.file_uploader("Upload your audio file", type=["mp3", "wav"])
+        ## bpm
+        bpm = st.number_input("Enter the BPM of the track")
 
         submit_button = st.form_submit_button(label="Generate Video")
 
         status_message = st.empty()
         if submit_button:
+            init_state(reload=True)
             if project_name == "":
                 status_message.error("Please enter the project name")
 

@@ -1,12 +1,12 @@
 import requests
-from typing import Tuple
+from typing import Tuple, List
 
 import streamlit as st
 
 from streamlit_app.project_status import get_project_status
 
 
-def generate_image() -> Tuple[bool, str]:
+def generate_image(chunks: List[str] = []) -> Tuple[bool, str]:
     # Define the URL of the endpoint
     url = "http://localhost:8000/stable_diffusion"
 
@@ -17,6 +17,7 @@ def generate_image() -> Tuple[bool, str]:
 
     params = {
         "style": st.session_state.stable_diffussion_style,
+        "chunks": chunks,
     }
     # Send a POST request to the endpoint
     response = requests.post(url, data=data, params=params)
