@@ -44,6 +44,9 @@ if (
     and (st.session_state.project_status.prompt > 0)
     and (st.session_state.project_status.images > 0)
 ):
+    print("*" * 50)
+    print("In here!")
+    print("*" * 50)
     submit_button = st.button(label="Generate Video", key="generate_video_for_edist")
     if submit_button:
         status_message = st.empty()

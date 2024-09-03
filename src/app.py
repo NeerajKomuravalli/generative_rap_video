@@ -667,9 +667,6 @@ async def generate_video(
             if audio_file_path.suffix in [".wav", ".mp3"]
         ][0]
 
-        print("images_folder_path : ", images_folder_path)
-        print("audio_file_path : ", audio_file_path)
-        print("save_video_path : ", save_video_path)
         # Call the function to generate the video
         create_video(images_folder_path, audio_file_path, save_video_path)
 
@@ -1040,6 +1037,7 @@ async def get_chunks(project_name: str, bpm: int = Form(...)):
         chunk_save_folder_path = Path("./Projects") / project_name / "audio_chunks"
         chunk_save_folder_path.mkdir(parents=True, exist_ok=True)
 
+        print("LOG : Just before divide track into chunks")
         # Call the function to divide the track
         divide_track_into_chunks(file_path, bpm, str(chunk_save_folder_path))
 

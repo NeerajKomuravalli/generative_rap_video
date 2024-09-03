@@ -9,6 +9,9 @@ from streamlit_app.get_audio_data import get_audio_chunk
 
 
 def handle_transcribe_tab():
+    # Below condition will ensure that code inside this fn will not run unless there is a video generated
+    if st.session_state.project_status.video == "":
+        return
     # When the user clicks the 'Get Audio Chunks' button
     # if st.button("View transcript and audio"):
     if (

@@ -11,6 +11,9 @@ from streamlit_app.generate_image import generate_image
 
 
 def handle_image_gen_tab():
+    # Below condition will ensure that code inside this fn will not run unless there is a video generated
+    if st.session_state.project_status.video == "":
+        return
     if (
         st.session_state.image_generation_completion
         or st.session_state.project_status.images > 0

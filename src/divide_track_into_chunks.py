@@ -35,17 +35,20 @@ def divide_track_into_chunks(
     The function assumes a 4/4 time signature, meaning each bar consists of four beats.
     """
     # Load audio file
+    print("LOG : about to load : ", audio_track_path)
     y, sr = librosa.load(audio_track_path)
-
+    print("LOG : len(y) : ", len(y))
+    print("LOG : sr : ", sr)
     # Calculate the duration of 1 beat in seconds
     beat_duration = 60 / bpm
-
+    print("LOG : beat_duration : ", beat_duration)
     # Calculate the duration of 1 bar (4 beats) in seconds
     bar_duration = beat_duration * 4
-
+    print("LOG : bar_duration : ", bar_duration)
     # Calculate the number of samples in 1 bar
     samples_per_bar = int(bar_duration * sr)
-
+    print("LOG : samples_per_bar : ", samples_per_bar)
+    print("LOG : about to chunk")
     # Divide the audio file into chunks of 1 bar
     audio_chunks = [
         y[i : i + samples_per_bar] for i in range(0, len(y), samples_per_bar)
@@ -55,6 +58,7 @@ def divide_track_into_chunks(
     if not os.path.exists(chunk_save_folder_path):
         os.makedirs(chunk_save_folder_path)
 
+    print("LOG : about to write : ", len(audio_chunks), " chunks")
     # Save each audio chunk with a sequence number
     for i, chunk in enumerate(audio_chunks):
         output_file = os.path.join(chunk_save_folder_path, f"chunk_{i+1}.wav")

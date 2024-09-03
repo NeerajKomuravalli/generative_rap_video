@@ -12,10 +12,16 @@ from streamlit_app.generate_prompt import generate_prompt
 
 
 def handle_prompt_gene_tab():
+    # Below condition will ensure that code inside this fn will not run unless there is a video generated
+    if st.session_state.project_status.video == "":
+        return
     if (
         st.session_state.prompt_generation_completion
         or st.session_state.project_status.prompt > 0
     ) and (st.session_state.prompt_tab_load):
+        print(st.session_state.prompt_generation_completion)
+        print(st.session_state.project_status.prompt > 0)
+        print(st.session_state.prompt_tab_load)
         url = f"http://localhost:8000/get_sd_prompts/{st.session_state.project_name}"
         response = requests.get(url)
         # If the request was successful
@@ -59,5 +65,5 @@ def handle_prompt_gene_tab_v1():
         succcess, message = generate_prompt()
         if not succcess:
             st.error(message)
-
+            return
     handle_prompt_gene_tab()
