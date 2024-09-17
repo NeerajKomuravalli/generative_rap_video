@@ -16,7 +16,7 @@ def create_video(
             for img in os.listdir(image_folder_path)
             if img.endswith(".png")
         ],
-        key=lambda img: int(img.split("/")[-1].split(".")[0]),
+        key=lambda img: int(img.split("/")[-1].split("_")[-1].split(".")[0]),
     )
 
     # NOTE: TODO: Automatic calculation of the image duration. Use librosa to do it

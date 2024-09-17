@@ -58,6 +58,9 @@ def stable_diffusion(
         if style_selected in STYLES:
             style = style_selected
 
+    if style not in STYLES:
+        raise Exception(f"Style {style} is not supported")
+
     # Request payload
     data = {
         "prompt": prompt,
@@ -66,12 +69,12 @@ def stable_diffusion(
         "samples": 1,
         "scheduler": "UniPC",
         "num_inference_steps": 25,
-        "guidance_scale": "8",
+        "guidance_scale": 8,
         "strength": 0.2,
         "high_noise_fraction": 0.8,
-        "seed": "468685",
-        "img_width": "1024",
-        "img_height": "1024",
+        "seed": 468685,
+        "img_width": 1024,
+        "img_height": 1024,
         "refiner": True,
         "base64": False,
     }
@@ -82,6 +85,7 @@ def stable_diffusion(
             print(
                 f"Warning: Retrying Segmind stable diffusion model for {retry_count} times as it failed"
             )
+
         response = requests.post(
             URL,
             json=data,
@@ -89,7 +93,6 @@ def stable_diffusion(
                 "x-api-key": choose_api_key(),
             },
         )
-
         if response.status_code == 200:
             with open(save_image_path, "wb") as f:
                 f.write(response.content)
